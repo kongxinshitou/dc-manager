@@ -1,0 +1,34 @@
+# Go binaries
+backend/dc_manager.exe
+backend/backend.exe
+backend/import_tool.exe
+backend/*.exe
+backend/dcmanager
+backend/import
+
+# Claude Code local settings
+.claude/
+
+# Database
+backend/dc_manager.db
+
+# Source data
+*.xlsx
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
