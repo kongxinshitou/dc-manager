@@ -1,14 +1,19 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Table, Button, Input, Select, Space, Tag, Modal, Form,
-  DatePicker, message, Popconfirm, Row, Col, Card, Tooltip
+  DatePicker, message, Popconfirm, Row, Col, Card, Tooltip, Upload
 } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
-import type { ColumnsType } from 'antd/es/table'
 import {
-  getDevices, createDevice, updateDevice, deleteDevice,
-  getDeviceOptions,
+  PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined,
+  DownloadOutlined, UploadOutlined
+} from '@ant-design/icons'
+import dayjs from 'dayjs'
+import type { ColumnsType, TableProps } from 'antd/es/table'
+import type { SorterResult } from 'antd/es/table/interface'
+import {
+  getDevices, getDevice, createDevice, updateDevice, deleteDevice,
+  getDeviceOptions, batchDeleteDevices, exportDevices,
+  importDevicesPreview, importDevicesConfirm,
 } from '../api'
 import type { Device, DeviceQuery } from '../api'
 
@@ -18,7 +23,12 @@ const statusColor: Record<string, string> = {
   Online: 'green', online: 'green', onlion: 'green', Offline: 'red', offline: 'red',
 }
 
-export default function Devices() {
+interface DevicesProps {
+  focusDeviceId?: number | null
+  onFocusHandled?: () => void
+}
+
+export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps) {
   const [data, setData] = useState<Device[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -27,6 +37,16 @@ export default function Devices() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Device | null>(null)
   const [form] = Form.useForm()
+
+  // Batch selection
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+
+  // Import state
+  const [importLoading, setImportLoading] = useState(false)
+  const [importPreviewOpen, setImportPreviewOpen] = useState(false)
+  const [importPreviewData, setImportPreviewData] = useState<Device[]>([])
+  const [importCount, setImportCount] = useState(0)
+  const importFileRef = useRef<File | null>(null)
 
   const fetchOptions = useCallback(() => {
     getDeviceOptions().then(setOptions)
@@ -46,6 +66,16 @@ export default function Devices() {
     fetchData(query)
   }, [])
 
+  // When a device ID is passed from outside (e.g., navigation from Inspections), open its edit modal
+  useEffect(() => {
+    if (focusDeviceId) {
+      getDevice(focusDeviceId).then(device => {
+        openEdit(device)
+        onFocusHandled?.()
+      }).catch(() => onFocusHandled?.())
+    }
+  }, [focusDeviceId])
+
   const handleSearch = (values: any) => {
     const q = { ...query, ...values, page: 1 }
     setQuery(q)
@@ -54,6 +84,18 @@ export default function Devices() {
 
   const handleReset = () => {
     const q: DeviceQuery = { page: 1, page_size: 20 }
+    setQuery(q)
+    fetchData(q)
+  }
+
+  const handleTableChange: TableProps<Device>['onChange'] = (_, __, sorter) => {
+    const s = Array.isArray(sorter) ? sorter[0] : sorter as SorterResult<Device>
+    const q: DeviceQuery = {
+      ...query,
+      page: 1,
+      order_by: s.order ? (s.field as string) : undefined,
+      sort: s.order === 'ascend' ? 'asc' : s.order === 'descend' ? 'desc' : undefined,
+    }
     setQuery(q)
     fetchData(q)
   }
@@ -81,6 +123,13 @@ export default function Devices() {
     fetchData(query)
   }
 
+  const handleBatchDelete = async () => {
+    await batchDeleteDevices(selectedIds)
+    message.success(`已删除 ${selectedIds.length} 条记录`)
+    setSelectedIds([])
+    fetchData(query)
+  }
+
   const handleSubmit = async () => {
     const values = await form.validateFields()
     const payload = {
@@ -101,23 +150,87 @@ export default function Devices() {
     fetchOptions()
   }
 
+  const handleExport = async () => {
+    try {
+      const blob = await exportDevices(query)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'devices.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      message.error('导出失败')
+    }
+  }
+
+  const handleImportFile = async (file: File) => {
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      message.error('请上传 .xlsx 格式文件')
+      return false
+    }
+    importFileRef.current = file
+    setImportLoading(true)
+    try {
+      const res = await importDevicesPreview(file)
+      setImportPreviewData(res.preview || [])
+      setImportCount(res.count)
+      setImportPreviewOpen(true)
+    } catch (err: any) {
+      message.error(err.response?.data?.error || '文件解析失败')
+    } finally {
+      setImportLoading(false)
+    }
+    return false
+  }
+
+  const handleImportConfirm = async () => {
+    if (!importFileRef.current) return
+    setImportLoading(true)
+    try {
+      const res = await importDevicesConfirm(importFileRef.current)
+      message.success(res.message || `导入成功，新增${res.inserted}条，跳过${res.skipped}条重复`)
+      setImportPreviewOpen(false)
+      importFileRef.current = null
+      fetchData(query)
+      fetchOptions()
+    } catch (err: any) {
+      message.error(err.response?.data?.error || '导入失败')
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  const previewColumns: ColumnsType<Device> = [
+    { title: '来源', dataIndex: 'source', width: 80 },
+    { title: '品牌', dataIndex: 'brand', width: 80 },
+    { title: '型号', dataIndex: 'model', width: 100, ellipsis: true },
+    { title: '机房', dataIndex: 'datacenter', width: 100 },
+    { title: 'IP地址', dataIndex: 'ip_address', width: 120 },
+    { title: '序列号', dataIndex: 'serial_number', width: 150, ellipsis: true },
+  ]
+
   const columns: ColumnsType<Device> = [
-    { title: 'ID', dataIndex: 'id', width: 60, fixed: 'left' },
+    { title: 'ID', dataIndex: 'id', width: 60, fixed: 'left', sorter: true },
     { title: '来源', dataIndex: 'source', width: 90 },
-    { title: '状态', dataIndex: 'status', width: 70,
+    { title: '状态', dataIndex: 'status', width: 70, sorter: true,
       render: v => v ? <Tag color={statusColor[v] || 'default'}>{v}</Tag> : '-' },
-    { title: '机房', dataIndex: 'datacenter', width: 120, ellipsis: true },
+    { title: '机房', dataIndex: 'datacenter', width: 120, ellipsis: true, sorter: true },
     { title: '机柜', dataIndex: 'cabinet', width: 80 },
     { title: 'U位', dataIndex: 'u_position', width: 80 },
-    { title: '品牌', dataIndex: 'brand', width: 70 },
+    { title: '起始U', dataIndex: 'start_u', width: 60,
+      render: (v: number | null) => v != null ? v : '-' },
+    { title: '结束U', dataIndex: 'end_u', width: 60,
+      render: (v: number | null) => v != null ? v : '-' },
+    { title: '品牌', dataIndex: 'brand', width: 70, sorter: true },
     { title: '型号', dataIndex: 'model', width: 100, ellipsis: true },
-    { title: '类型', dataIndex: 'device_type', width: 80 },
+    { title: '类型', dataIndex: 'device_type', width: 80, sorter: true },
     { title: '序列号', dataIndex: 'serial_number', width: 160, ellipsis: true },
-    { title: 'IP地址', dataIndex: 'ip_address', width: 130 },
+    { title: 'IP地址', dataIndex: 'ip_address', width: 130, sorter: true },
     { title: '管理IP', dataIndex: 'mgmt_ip', width: 130 },
     { title: '操作系统', dataIndex: 'os', width: 90, ellipsis: true },
     { title: '用途', dataIndex: 'purpose', width: 120, ellipsis: true },
-    { title: '责任人', dataIndex: 'owner', width: 80 },
+    { title: '责任人', dataIndex: 'owner', width: 80, sorter: true },
     { title: '维保截止', dataIndex: 'warranty_end', width: 100,
       render: v => v ? dayjs(v).format('YYYY-MM-DD') : '-' },
     {
@@ -170,8 +283,28 @@ export default function Devices() {
       </Card>
 
       <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>共 <strong>{total}</strong> 条记录</span>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增设备</Button>
+        <Space>
+          <span>共 <strong>{total}</strong> 条记录</span>
+          {selectedIds.length > 0 && (
+            <Popconfirm
+              title={`确认删除选中的 ${selectedIds.length} 条记录？`}
+              onConfirm={handleBatchDelete}
+            >
+              <Button danger size="small">批量删除 ({selectedIds.length})</Button>
+            </Popconfirm>
+          )}
+        </Space>
+        <Space>
+          <Button icon={<DownloadOutlined />} onClick={handleExport}>导出Excel</Button>
+          <Upload
+            accept=".xlsx,.xls"
+            showUploadList={false}
+            beforeUpload={handleImportFile}
+          >
+            <Button icon={<UploadOutlined />} loading={importLoading}>导入Excel</Button>
+          </Upload>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增设备</Button>
+        </Space>
       </div>
 
       <Table
@@ -181,6 +314,11 @@ export default function Devices() {
         size="small"
         loading={loading}
         scroll={{ x: 1800 }}
+        rowSelection={{
+          selectedRowKeys: selectedIds,
+          onChange: keys => setSelectedIds(keys as number[]),
+        }}
+        onChange={handleTableChange}
         pagination={{
           total, pageSize: query.page_size, current: query.page, showSizeChanger: true,
           pageSizeOptions: ['20', '50', '100'],
@@ -191,6 +329,28 @@ export default function Devices() {
         }}
       />
 
+      {/* Import Preview Modal */}
+      <Modal
+        title={`导入预览（共 ${importCount} 条记录，展示前 ${importPreviewData.length} 条）`}
+        open={importPreviewOpen}
+        onOk={handleImportConfirm}
+        onCancel={() => { setImportPreviewOpen(false); importFileRef.current = null }}
+        okText="确认导入"
+        cancelText="取消"
+        confirmLoading={importLoading}
+        width={800}
+      >
+        <Table
+          dataSource={importPreviewData}
+          columns={previewColumns}
+          rowKey={(_, i) => String(i)}
+          size="small"
+          pagination={false}
+          scroll={{ x: 600 }}
+        />
+      </Modal>
+
+      {/* Create / Edit Modal */}
       <Modal
         title={editing ? '编辑设备' : '新增设备'}
         open={modalOpen}
@@ -208,7 +368,11 @@ export default function Devices() {
           <Row gutter={16}>
             <Col span={8}><Form.Item label="机房" name="datacenter" rules={[{ required: true }]}><Input /></Form.Item></Col>
             <Col span={8}><Form.Item label="机柜号" name="cabinet"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="U位置" name="u_position"><Input /></Form.Item></Col>
+            <Col span={8}>
+              <Form.Item label="U位置" name="u_position" extra="格式如 04U 或 04-05U，自动解析起始/结束U">
+                <Input placeholder="如 04U 或 04-05U" />
+              </Form.Item>
+            </Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}><Form.Item label="品牌" name="brand" rules={[{ required: true }]}><Input /></Form.Item></Col>

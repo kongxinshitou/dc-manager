@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, Row, Col, Table, Tag, Typography, Spin, Badge, Statistic } from 'antd'
-import { AlertOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { AlertOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DatabaseOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import dayjs from 'dayjs'
 import { getDashboard } from '../api'
@@ -19,15 +19,26 @@ const statusColor: Record<string, string> = {
   已解决: 'green',
 }
 
+
 export default function Dashboard() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [issuesPage, setIssuesPage] = useState(1)
+  const [issuesPageSize, setIssuesPageSize] = useState(20)
+
+  const fetchData = (page: number, pageSize: number) => {
+    setLoading(true)
+    getDashboard({ issues_page: page, issues_page_size: pageSize })
+      .then(d => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }
 
   useEffect(() => {
-    getDashboard().then(d => { setData(d); setLoading(false) })
-  }, [])
+    fetchData(issuesPage, issuesPageSize)
+  }, [issuesPage, issuesPageSize])
 
-  if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />
+  if (loading && !data) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />
+  if (!data) return null
 
   const severeCount = (data.severity_stats || []).find((s: any) => s.severity === '严重')?.count ?? 0
 
@@ -87,6 +98,41 @@ export default function Dashboard() {
     }],
   }
 
+  // Datacenter device count bar chart
+  const datacenterDeviceChartOption = {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 20, right: 20, bottom: 20, top: 40, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: (data.datacenter_device_stats || []).map((s: any) => s.datacenter || '未知'),
+      axisLabel: { rotate: 30, fontSize: 11 },
+    },
+    yAxis: { type: 'value', name: '设备数' },
+    series: [{
+      name: '设备数量',
+      type: 'bar',
+      data: (data.datacenter_device_stats || []).map((s: any) => s.count),
+      itemStyle: { color: '#1677ff' },
+      label: { show: true, position: 'top' },
+    }],
+  }
+
+  // Device type pie chart
+  const deviceTypeChartOption = {
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, type: 'scroll' },
+    series: [{
+      name: '设备类型',
+      type: 'pie',
+      radius: ['35%', '65%'],
+      data: (data.device_type_stats || []).map((s: any) => ({
+        name: s.device_type || '未知',
+        value: s.count,
+      })),
+      label: { formatter: '{b}: {c}' },
+    }],
+  }
+
   const columns = [
     { title: '发现时间', dataIndex: 'found_at', key: 'found_at', width: 160,
       render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
@@ -106,7 +152,17 @@ export default function Dashboard() {
 
       {/* 统计卡片 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+        <Col span={5}>
+          <Card>
+            <Statistic
+              title="设备总数"
+              value={data.total_devices ?? 0}
+              valueStyle={{ color: '#1677ff' }}
+              prefix={<DatabaseOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={5}>
           <Card>
             <Statistic
               title="未解决问题总数"
@@ -116,7 +172,7 @@ export default function Dashboard() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={4}>
           <Card>
             <Statistic
               title="严重问题"
@@ -126,7 +182,7 @@ export default function Dashboard() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="已解决问题"
@@ -136,18 +192,18 @@ export default function Dashboard() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="涉及机房数"
               value={data.room_stats?.length ?? 0}
-              valueStyle={{ color: '#1677ff' }}
+              valueStyle={{ color: '#722ed1' }}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* 图表 */}
+      {/* 巡检问题图表 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={12}>
           <Card title="各机房未解决问题数量" size="small">
@@ -173,6 +229,20 @@ export default function Dashboard() {
         </Col>
       </Row>
 
+      {/* 设备统计图表（新增） */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={14}>
+          <Card title="机房设备统计（各机房设备数量）" size="small">
+            <ReactECharts option={datacenterDeviceChartOption} style={{ height: 280 }} />
+          </Card>
+        </Col>
+        <Col span={10}>
+          <Card title="设备类型统计" size="small">
+            <ReactECharts option={deviceTypeChartOption} style={{ height: 280 }} />
+          </Card>
+        </Col>
+      </Row>
+
       {/* 趋势图 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={24}>
@@ -182,15 +252,26 @@ export default function Dashboard() {
         </Col>
       </Row>
 
-      {/* 未解决问题列表 */}
+      {/* 未解决问题列表（支持分页） */}
       <Card title="近期未解决问题（按发现时间排序）" size="small">
         <Table
           dataSource={data.recent_issues || []}
           columns={columns}
           rowKey="id"
           size="small"
-          pagination={false}
+          loading={loading}
           scroll={{ x: 800 }}
+          pagination={{
+            total: data.recent_issues_total ?? 0,
+            current: issuesPage,
+            pageSize: issuesPageSize,
+            showSizeChanger: true,
+            pageSizeOptions: ['20', '50'],
+            onChange: (page, pageSize) => {
+              setIssuesPage(page)
+              setIssuesPageSize(pageSize)
+            },
+          }}
         />
       </Card>
     </div>

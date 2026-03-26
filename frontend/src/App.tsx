@@ -15,11 +15,24 @@ const menuItems = [
 
 export default function App() {
   const [page, setPage] = useState('dashboard')
+  const [focusDeviceId, setFocusDeviceId] = useState<number | null>(null)
   const { token } = theme.useToken()
 
+  const handleGoToDevice = (id: number) => {
+    setFocusDeviceId(id)
+    setPage('devices')
+  }
+
   const renderPage = () => {
-    if (page === 'devices') return <Devices />
-    if (page === 'inspections') return <Inspections />
+    if (page === 'devices') return (
+      <Devices
+        focusDeviceId={focusDeviceId}
+        onFocusHandled={() => setFocusDeviceId(null)}
+      />
+    )
+    if (page === 'inspections') return (
+      <Inspections onGoToDevice={handleGoToDevice} />
+    )
     return <Dashboard />
   }
 

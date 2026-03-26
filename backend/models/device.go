@@ -10,6 +10,8 @@ type Device struct {
 	Datacenter      string     `json:"datacenter"`       // 机房
 	Cabinet         string     `json:"cabinet"`          // 机柜号
 	UPosition       string     `json:"u_position"`       // U位置
+	StartU          *int       `json:"start_u"`          // 起始U（如04-05U → 4）
+	EndU            *int       `json:"end_u"`            // 结束U（如04-05U → 5）
 	Brand           string     `json:"brand"`            // 设备品牌
 	Model           string     `json:"model"`            // 设备型号
 	DeviceType      string     `json:"device_type"`      // 设备类型
@@ -42,4 +44,6 @@ type DeviceQuery struct {
 	Keyword    string `form:"keyword"` // 全局搜索
 	Page       int    `form:"page"`
 	PageSize   int    `form:"page_size"`
+	OrderBy    string `form:"order_by"`
+	Sort       string `form:"sort"`
 }

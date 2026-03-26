@@ -31,6 +31,11 @@ func main() {
 		// 设备台账
 		api.GET("/devices", handlers.GetDevices)
 		api.GET("/devices/options", handlers.GetDeviceOptions)
+		api.GET("/devices/export", handlers.ExportDevices)
+		api.GET("/devices/by-location", handlers.GetDeviceByLocation)
+		api.GET("/devices/cabinets", handlers.GetCabinets)
+		api.POST("/devices/import", handlers.ImportDevices)
+		api.DELETE("/devices/batch", handlers.BatchDeleteDevices)
 		api.GET("/devices/:id", handlers.GetDevice)
 		api.POST("/devices", handlers.CreateDevice)
 		api.PUT("/devices/:id", handlers.UpdateDevice)
@@ -38,6 +43,8 @@ func main() {
 
 		// 巡检记录
 		api.GET("/inspections", handlers.GetInspections)
+		api.POST("/inspections/import", handlers.ImportInspections)
+		api.DELETE("/inspections/batch", handlers.BatchDeleteInspections)
 		api.GET("/inspections/:id", handlers.GetInspection)
 		api.POST("/inspections", handlers.CreateInspection)
 		api.PUT("/inspections/:id", handlers.UpdateInspection)
@@ -47,8 +54,10 @@ func main() {
 		api.GET("/dashboard", handlers.GetDashboard)
 	}
 
-	// MCP endpoint
-	r.POST("/mcp", mcp.HandleMCP)
+	// MCP endpoints
+	r.POST("/mcp", mcp.HandleMCP)             // 直接 HTTP（Claude Code）
+	r.GET("/mcp/sse", mcp.HandleMCPSSE)       // SSE 长连接（Cline）
+	r.POST("/mcp/messages", mcp.HandleMCPMessages) // SSE 消息接收
 
 	port := os.Getenv("PORT")
 	if port == "" {

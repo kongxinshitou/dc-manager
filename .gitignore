@@ -1,8 +1,5 @@
 # Go binaries
-backend/dc_manager.exe
-backend/backend.exe
-backend/import_tool.exe
-backend/*.exe
+*.exe
 backend/dcmanager
 backend/import
 

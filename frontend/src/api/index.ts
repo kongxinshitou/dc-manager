@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: 'http://localhost:8080/api',
-  timeout: 10000,
+  timeout: 30000,
 })
 
 export interface Device {
@@ -13,6 +13,8 @@ export interface Device {
   datacenter: string
   cabinet: string
   u_position: string
+  start_u: number | null
+  end_u: number | null
   brand: string
   model: string
   device_type: string
@@ -39,6 +41,8 @@ export interface Inspection {
   datacenter: string
   cabinet: string
   u_position: string
+  start_u: number | null
+  end_u: number | null
   found_at: string
   inspector: string
   issue: string
@@ -69,6 +73,8 @@ export interface DeviceQuery {
   keyword?: string
   page?: number
   page_size?: number
+  order_by?: string
+  sort?: 'asc' | 'desc'
 }
 
 export interface InspectionQuery {
@@ -82,6 +88,8 @@ export interface InspectionQuery {
   keyword?: string
   page?: number
   page_size?: number
+  order_by?: string
+  sort?: 'asc' | 'desc'
 }
 
 // Devices
@@ -100,8 +108,34 @@ export const updateDevice = (id: number, data: Partial<Device>) =>
 export const deleteDevice = (id: number) =>
   api.delete(`/devices/${id}`).then(r => r.data)
 
+export const batchDeleteDevices = (ids: number[]) =>
+  api.delete<{ deleted: number }>('/devices/batch', { data: { ids } }).then(r => r.data)
+
 export const getDeviceOptions = () =>
   api.get<{ sources: string[]; datacenters: string[]; device_types: string[]; brands: string[] }>('/devices/options').then(r => r.data)
+
+export const getDeviceCabinets = (datacenter: string) =>
+  api.get<{ cabinets: string[] }>('/devices/cabinets', { params: { datacenter } }).then(r => r.data)
+
+export const getDeviceByLocation = (datacenter: string, cabinet: string, startU: number | null, endU: number | null) =>
+  api.get<{ device: Device | null }>('/devices/by-location', {
+    params: { datacenter, cabinet, start_u: startU ?? undefined, end_u: endU ?? undefined }
+  }).then(r => r.data)
+
+export const exportDevices = (params: DeviceQuery) =>
+  api.get('/devices/export', { params, responseType: 'blob' }).then(r => r.data as Blob)
+
+export const importDevicesPreview = (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post<{ preview: Device[]; count: number }>('/devices/import', form).then(r => r.data)
+}
+
+export const importDevicesConfirm = (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post<{ inserted: number; skipped: number; message: string }>('/devices/import?confirm=true', form).then(r => r.data)
+}
 
 // Inspections
 export const getInspections = (params: InspectionQuery) =>
@@ -119,8 +153,23 @@ export const updateInspection = (id: number, data: Partial<Inspection>) =>
 export const deleteInspection = (id: number) =>
   api.delete(`/inspections/${id}`).then(r => r.data)
 
+export const batchDeleteInspections = (ids: number[]) =>
+  api.delete<{ deleted: number }>('/inspections/batch', { data: { ids } }).then(r => r.data)
+
+export const importInspectionsPreview = (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post<{ preview: Inspection[]; count: number }>('/inspections/import', form).then(r => r.data)
+}
+
+export const importInspectionsConfirm = (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post<{ inserted: number; skipped: number; message: string }>('/inspections/import?confirm=true', form).then(r => r.data)
+}
+
 // Dashboard
-export const getDashboard = () =>
-  api.get('/dashboard').then(r => r.data)
+export const getDashboard = (params?: { issues_page?: number; issues_page_size?: number }) =>
+  api.get('/dashboard', { params }).then(r => r.data)
 
 export default api

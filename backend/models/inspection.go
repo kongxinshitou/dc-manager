@@ -8,7 +8,9 @@ type Inspection struct {
 	Device     *Device    `json:"device" gorm:"foreignKey:DeviceID"`
 	Datacenter string     `json:"datacenter"`  // 机房
 	Cabinet    string     `json:"cabinet"`     // 机柜
-	UPosition  string     `json:"u_position"`  // U位
+	UPosition  string     `json:"u_position"`  // U位（冗余保留）
+	StartU     *int       `json:"start_u"`     // 起始U
+	EndU       *int       `json:"end_u"`       // 结束U
 	FoundAt    time.Time  `json:"found_at"`    // 发现问题时间
 	Inspector  string     `json:"inspector"`   // 巡检人
 	Issue      string     `json:"issue"`       // 问题描述
@@ -31,4 +33,6 @@ type InspectionQuery struct {
 	Keyword    string `form:"keyword"`
 	Page       int    `form:"page"`
 	PageSize   int    `form:"page_size"`
+	OrderBy    string `form:"order_by"`
+	Sort       string `form:"sort"`
 }
