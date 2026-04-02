@@ -1,0 +1,6 @@
+*.exe
+*.bat
+import/
+import_tool.exe
+import_data.py
+setup_db.py

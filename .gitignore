@@ -6,8 +6,8 @@ backend/import
 # Claude Code local settings
 .claude/
 
-# Database
-backend/dc_manager.db
+# Database (dc_manager.db 需要上传供 Docker 初始化使用)
+# backend/dc_manager.db
 
 # Source data
 *.xlsx

@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dcmanager-backend
+    environment:
+      - PORT=8080
+      - DB_PATH=/app/data/dc_manager.db
+      - TZ=Asia/Shanghai
+    volumes:
+      - db-data:/app/data
+    restart: unless-stopped
+    networks:
+      - dcmanager-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dcmanager-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - dcmanager-net
+
+volumes:
+  db-data:
+    name: dcmanager-db
+
+networks:
+  dcmanager-net:
+    name: dcmanager-net
