@@ -10,6 +10,8 @@ services:
       - TZ=Asia/Shanghai
     volumes:
       - db-data:/app/data
+    ports:
+      - "8080:8080"
     restart: unless-stopped
     networks:
       - dcmanager-net
@@ -20,7 +22,7 @@ services:
       dockerfile: Dockerfile
     container_name: dcmanager-frontend
     ports:
-      - "80:80"
+      - "9000:9000"
     depends_on:
       - backend
     restart: unless-stopped

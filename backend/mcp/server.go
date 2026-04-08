@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	uRangeRe      = regexp.MustCompile(`^(\d+)\s*[-~]\s*(\d+)\s*[Uu]$`)
-	uSingleRe     = regexp.MustCompile(`^(\d+)\s*[Uu]$`)
-	datacenterRe  = regexp.MustCompile(`(?i)^(IDC)?\s*(\d+)\s*[-]\s*(\d+)$`)
-	cabinetRe     = regexp.MustCompile(`^([A-Za-z]+)[\s\-]*(\d+)$`)
+	uRangeRe     = regexp.MustCompile(`^(\d+)\s*[-~]\s*(\d+)\s*[Uu]$`)
+	uSingleRe    = regexp.MustCompile(`^(\d+)\s*[Uu]$`)
+	datacenterRe = regexp.MustCompile(`(?i)^(IDC)?\s*(\d+)\s*[-]\s*(\d+)$`)
+	cabinetRe    = regexp.MustCompile(`^([A-Za-z]+)[\s\-]*(\d+)$`)
 )
 
 // normalizeDatacenter 标准化机房名称: "1-2" → "IDC1-2", "idc1-2" → "IDC1-2"
@@ -871,24 +871,34 @@ func processRequest(req MCPRequest) MCPResponse {
 		switch params.Name {
 		case "query_devices":
 			resultText, err = handleQueryDevices(params.Arguments)
+			fmt.Println(time.Now().String(), "query_devices")
 		case "add_device":
 			resultText, err = handleAddDevice(params.Arguments)
+			fmt.Println(time.Now().String(), "add_device")
 		case "delete_device":
 			resultText, err = handleDeleteDevice(params.Arguments)
+			fmt.Println(time.Now().String(), "delete_device")
 		case "batch_delete_devices":
 			resultText, err = handleBatchDeleteDevices(params.Arguments)
+			fmt.Println(time.Now().String(), "batch_delete_devices")
 		case "query_inspections":
 			resultText, err = handleQueryInspections(params.Arguments)
+			fmt.Println(time.Now().String(), "query_inspections")
 		case "add_inspection":
 			resultText, err = handleAddInspection(params.Arguments)
+			fmt.Println(time.Now().String(), "add_inspection")
 		case "delete_inspection":
 			resultText, err = handleDeleteInspection(params.Arguments)
+			fmt.Println(time.Now().String(), "delete_inspection")
 		case "batch_delete_inspections":
 			resultText, err = handleBatchDeleteInspections(params.Arguments)
+			fmt.Println(time.Now().String(), "batch_delete_inspections")
 		case "batch_add_inspections":
 			resultText, err = handleBatchAddInspections(params.Arguments)
+			fmt.Println(time.Now().String(), "batch_add_inspections")
 		case "get_issue_status":
 			resultText, err = handleGetIssueStatus(params.Arguments)
+			fmt.Println(time.Now().String(), "get_issue_status")
 		default:
 			resp.Error = &MCPError{Code: -32601, Message: "Tool not found: " + params.Name}
 			return resp
