@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"bytes"
+	"dcmanager/config"
 	"dcmanager/database"
 	"dcmanager/models"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -205,7 +208,7 @@ func GetInspections(c *gin.Context) {
 func GetInspection(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var inspection models.Inspection
-	if err := database.DB.Preload("Device").First(&inspection, id).Error; err != nil {
+	if err := database.DB.Preload("Device").Preload("Images").First(&inspection, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "inspection not found"})
 		return
 	}
@@ -249,6 +252,15 @@ func UpdateInspection(c *gin.Context) {
 
 func DeleteInspection(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
+
+	// 级联删除图片文件和记录
+	var images []models.InspectionImage
+	database.DB.Where("inspection_id = ?", id).Find(&images)
+	for _, img := range images {
+		os.Remove(filepath.Join(config.UploadDir, img.FilePath))
+	}
+	database.DB.Where("inspection_id = ?", id).Delete(&models.InspectionImage{})
+
 	if err := database.DB.Delete(&models.Inspection{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -264,6 +276,15 @@ func BatchDeleteInspections(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ids"})
 		return
 	}
+
+	// 级联删除图片文件和记录
+	var images []models.InspectionImage
+	database.DB.Where("inspection_id IN ?", body.IDs).Find(&images)
+	for _, img := range images {
+		os.Remove(filepath.Join(config.UploadDir, img.FilePath))
+	}
+	database.DB.Where("inspection_id IN ?", body.IDs).Delete(&models.InspectionImage{})
+
 	if err := database.DB.Delete(&models.Inspection{}, body.IDs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

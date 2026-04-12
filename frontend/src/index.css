@@ -5,9 +5,37 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 767px) {
+  /* Touch target minimum size */
+  .ant-btn {
+    min-height: 36px;
+  }
+
+  /* Inline forms should stack on mobile */
+  .ant-form-inline .ant-form-item {
+    margin-right: 0;
+    margin-bottom: 8px;
+    display: block;
+    width: 100%;
+  }
+
+  /* Cards and sections less padding on mobile */
+  .ant-card-body {
+    padding: 12px;
+  }
+
+  /* Descriptions compact on mobile */
+  .ant-descriptions-item-label,
+  .ant-descriptions-item-content {
+    padding: 8px 12px !important;
+  }
 }

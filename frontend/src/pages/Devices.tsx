@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Table, Button, Input, Select, Space, Tag, Modal, Form,
-  DatePicker, message, Popconfirm, Row, Col, Card, Tooltip, Upload
+  DatePicker, message, Popconfirm, Row, Col, Card, Tooltip, Upload, Grid
 } from 'antd'
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined,
@@ -16,6 +16,7 @@ import {
   importDevicesPreview, importDevicesConfirm,
 } from '../api'
 import type { Device, DeviceQuery } from '../api'
+import ResponsiveTable from '../components/ResponsiveTable'
 
 const { Option } = Select
 
@@ -37,6 +38,8 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Device | null>(null)
   const [form] = Form.useForm()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -307,17 +310,17 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
         </Space>
       </div>
 
-      <Table
+      <ResponsiveTable
         dataSource={data}
         columns={columns}
         rowKey="id"
         size="small"
         loading={loading}
         scroll={{ x: 1800 }}
-        rowSelection={{
+        rowSelection={!isMobile ? {
           selectedRowKeys: selectedIds,
           onChange: keys => setSelectedIds(keys as number[]),
-        }}
+        } : undefined}
         onChange={handleTableChange}
         pagination={{
           total, pageSize: query.page_size, current: query.page, showSizeChanger: true,
@@ -327,6 +330,27 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
             setQuery(q); fetchData(q)
           },
         }}
+        mobileCardRender={(record) => (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <strong>{record.brand} {record.model}</strong>
+              <Tag color={statusColor[record.status] || 'default'}>{record.status}</Tag>
+            </div>
+            <div style={{ fontSize: 12, color: '#666', lineHeight: 1.8 }}>
+              <div>{record.datacenter} / {record.cabinet} / {record.u_position}</div>
+              <div>IP: {record.ip_address} | SN: {record.serial_number}</div>
+              <div>类型: {record.device_type} | 责任人: {record.owner}</div>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Space>
+                <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
+                <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
+                  <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                </Popconfirm>
+              </Space>
+            </div>
+          </div>
+        )}
       />
 
       {/* Import Preview Modal */}
@@ -356,47 +380,48 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={() => setModalOpen(false)}
-        width={800}
+        width={isMobile ? '100%' : 800}
+        style={isMobile ? { top: 0, maxWidth: '100vw', paddingBottom: 0 } : {}}
         destroyOnClose
       >
         <Form form={form} layout="vertical" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
           <Row gutter={16}>
-            <Col span={8}><Form.Item label="来源区域" name="source"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="状态" name="status"><Select allowClear><Option value="Online">Online</Option><Option value="Offline">Offline</Option></Select></Form.Item></Col>
-            <Col span={8}><Form.Item label="资产编号" name="asset_number"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="来源区域" name="source"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="状态" name="status"><Select allowClear><Option value="Online">Online</Option><Option value="Offline">Offline</Option></Select></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="资产编号" name="asset_number"><Input /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={8}><Form.Item label="机房" name="datacenter" rules={[{ required: true }]}><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="机柜号" name="cabinet"><Input /></Form.Item></Col>
-            <Col span={8}>
-              <Form.Item label="U位置" name="u_position" extra="格式如 04U 或 04-05U，自动解析起始/结束U">
+            <Col xs={24} sm={8}><Form.Item label="机房" name="datacenter" rules={[{ required: true }]}><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="机柜号" name="cabinet"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}>
+              <Form.Item label="U位置" name="u_position" extra="格式如 04U 或 04-05U">
                 <Input placeholder="如 04U 或 04-05U" />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={8}><Form.Item label="品牌" name="brand" rules={[{ required: true }]}><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="型号" name="model" rules={[{ required: true }]}><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="设备类型" name="device_type" rules={[{ required: true }]}><Select><Option value="服务器">服务器</Option><Option value="存储">存储</Option><Option value="网络">网络</Option><Option value="其他">其他</Option></Select></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="品牌" name="brand" rules={[{ required: true }]}><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="型号" name="model" rules={[{ required: true }]}><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="设备类型" name="device_type" rules={[{ required: true }]}><Select><Option value="服务器">服务器</Option><Option value="存储">存储</Option><Option value="网络">网络</Option><Option value="其他">其他</Option></Select></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={8}><Form.Item label="序列号" name="serial_number"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="操作系统" name="os"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="IP地址" name="ip_address"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="序列号" name="serial_number"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="操作系统" name="os"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="IP地址" name="ip_address"><Input /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={8}><Form.Item label="远程管理IP" name="mgmt_ip"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="管理口账号" name="mgmt_account"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item label="系统账号密码" name="system_account"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="远程管理IP" name="mgmt_ip"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="管理口账号" name="mgmt_account"><Input /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="系统账号密码" name="system_account"><Input /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={8}><Form.Item label="设备出厂时间" name="manufacture_date"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={8}><Form.Item label="维保起始时间" name="warranty_start"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={8}><Form.Item label="维保结束时间" name="warranty_end"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="设备出厂时间" name="manufacture_date"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="维保起始时间" name="warranty_start"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item label="维保结束时间" name="warranty_end"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={12}><Form.Item label="设备用途" name="purpose"><Input /></Form.Item></Col>
-            <Col span={12}><Form.Item label="责任人" name="owner"><Input /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item label="设备用途" name="purpose"><Input /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item label="责任人" name="owner"><Input /></Form.Item></Col>
           </Row>
           <Form.Item label="备注" name="remark"><Input.TextArea rows={2} /></Form.Item>
         </Form>

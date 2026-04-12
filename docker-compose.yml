@@ -7,9 +7,14 @@ services:
     environment:
       - PORT=8080
       - DB_PATH=/app/data/dc_manager.db
+      - UPLOAD_DIR=/app/uploads
+      - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
+      - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin123}
+      - MCP_API_KEY=${MCP_API_KEY:-}
       - TZ=Asia/Shanghai
     volumes:
       - db-data:/app/data
+      - uploads-data:/app/uploads
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -32,6 +37,8 @@ services:
 volumes:
   db-data:
     name: dcmanager-db
+  uploads-data:
+    name: dcmanager-uploads
 
 networks:
   dcmanager-net:

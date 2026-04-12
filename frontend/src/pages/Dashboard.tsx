@@ -151,8 +151,8 @@ export default function Dashboard() {
       <Title level={4} style={{ marginBottom: 16 }}>数据中心巡检大屏</Title>
 
       {/* 统计卡片 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={5}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={8} md={5}>
           <Card>
             <Statistic
               title="设备总数"
@@ -162,7 +162,7 @@ export default function Dashboard() {
             />
           </Card>
         </Col>
-        <Col span={5}>
+        <Col xs={12} sm={8} md={5}>
           <Card>
             <Statistic
               title="未解决问题总数"
@@ -172,7 +172,7 @@ export default function Dashboard() {
             />
           </Card>
         </Col>
-        <Col span={4}>
+        <Col xs={12} sm={8} md={4}>
           <Card>
             <Statistic
               title="严重问题"
@@ -182,7 +182,7 @@ export default function Dashboard() {
             />
           </Card>
         </Col>
-        <Col span={5}>
+        <Col xs={12} sm={12} md={5}>
           <Card>
             <Statistic
               title="已解决问题"
@@ -192,7 +192,7 @@ export default function Dashboard() {
             />
           </Card>
         </Col>
-        <Col span={5}>
+        <Col xs={12} sm={12} md={5}>
           <Card>
             <Statistic
               title="涉及机房数"
@@ -204,18 +204,18 @@ export default function Dashboard() {
       </Row>
 
       {/* 巡检问题图表 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={12}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={12}>
           <Card title="各机房未解决问题数量" size="small">
             <ReactECharts option={roomChartOption} style={{ height: 280 }} />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Card title="问题等级分布" size="small">
             <ReactECharts option={severityChartOption} style={{ height: 280 }} />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Card title="状态统计" size="small" style={{ height: '100%' }}>
             <div style={{ padding: '20px 0' }}>
               {(data.status_stats || []).map((s: any) => (
@@ -229,14 +229,14 @@ export default function Dashboard() {
         </Col>
       </Row>
 
-      {/* 设备统计图表（新增） */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={14}>
-          <Card title="机房设备统计（各机房设备数量）" size="small">
+      {/* 设备统计图表 */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={14}>
+          <Card title="机房设备统计" size="small">
             <ReactECharts option={datacenterDeviceChartOption} style={{ height: 280 }} />
           </Card>
         </Col>
-        <Col span={10}>
+        <Col xs={24} md={10}>
           <Card title="设备类型统计" size="small">
             <ReactECharts option={deviceTypeChartOption} style={{ height: 280 }} />
           </Card>
@@ -244,7 +244,7 @@ export default function Dashboard() {
       </Row>
 
       {/* 趋势图 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col span={24}>
           <Card title="近30天问题趋势" size="small">
             <ReactECharts option={trendChartOption} style={{ height: 200 }} />

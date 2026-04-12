@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"dcmanager/config"
 	"dcmanager/database"
 	"dcmanager/models"
 	"encoding/json"
@@ -136,6 +137,30 @@ type ToolCallResult struct {
 
 // SSE session store
 var sessions sync.Map // sessionID -> chan string
+
+// validateMCPKey checks if the request provides a valid MCP API key.
+// Returns true if the key is valid or if no key is configured (open mode).
+func validateMCPKey(c *gin.Context) bool {
+	if config.MCPAPIKey == "" {
+		return true // open mode, no key configured
+	}
+
+	// Check Authorization: Bearer <key> header
+	authHeader := c.GetHeader("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if token == config.MCPAPIKey {
+			return true
+		}
+	}
+
+	// Check api_key query parameter (needed for SSE/EventSource which cannot set custom headers)
+	if c.Query("api_key") == config.MCPAPIKey {
+		return true
+	}
+
+	return false
+}
 
 func getTools() []Tool {
 	return []Tool{
@@ -918,6 +943,11 @@ func processRequest(req MCPRequest) MCPResponse {
 
 // HandleMCPSSE - GET /mcp/sse，建立 SSE 长连接
 func HandleMCPSSE(c *gin.Context) {
+	if !validateMCPKey(c) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "MCP API key required"})
+		return
+	}
+
 	sessionID := uuid.New().String()
 	ch := make(chan string, 16)
 	sessions.Store(sessionID, ch)
@@ -952,6 +982,11 @@ func HandleMCPSSE(c *gin.Context) {
 
 // HandleMCPMessages - POST /mcp/messages，接收客户端消息并通过 SSE 推送响应
 func HandleMCPMessages(c *gin.Context) {
+	if !validateMCPKey(c) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "MCP API key required"})
+		return
+	}
+
 	sessionID := c.Query("sessionId")
 	val, ok := sessions.Load(sessionID)
 	if !ok {
@@ -984,6 +1019,11 @@ func HandleMCPMessages(c *gin.Context) {
 
 // HandleMCP - POST /mcp，兼容直接 HTTP 调用（Claude Code 等）
 func HandleMCP(c *gin.Context) {
+	if !validateMCPKey(c) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "MCP API key required"})
+		return
+	}
+
 	var req MCPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

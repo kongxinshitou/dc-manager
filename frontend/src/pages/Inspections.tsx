@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Table, Button, Input, Select, Space, Tag, Modal, Form,
-  DatePicker, message, Popconfirm, Card, Tooltip, Row, Col, Typography, Upload,
+  DatePicker, message, Popconfirm, Card, Tooltip, Row, Col, Typography, Upload, Grid
 } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, LinkOutlined, UploadOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, LinkOutlined, UploadOutlined, EyeOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import type { SorterResult } from 'antd/es/table/interface'
@@ -23,9 +23,11 @@ const statusColor: Record<string, string> = { 待处理: 'red', 处理中: 'oran
 
 interface InspectionsProps {
   onGoToDevice?: (id: number) => void
+  onViewDetail?: (id: number) => void
+  permissions?: Set<string>
 }
 
-export default function Inspections({ onGoToDevice }: InspectionsProps) {
+export default function Inspections({ onGoToDevice, onViewDetail, permissions }: InspectionsProps) {
   const [data, setData] = useState<Inspection[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -48,6 +50,9 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
   // Auto-found device in form
   const [foundDevice, setFoundDevice] = useState<Device | null | undefined>(undefined)
   const [lookingUp, setLookingUp] = useState(false)
+
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
 
   const fetchData = useCallback((q: InspectionQuery) => {
     setLoading(true)
@@ -287,13 +292,20 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
     { title: '解决时间', dataIndex: 'resolved_at', width: 110, sorter: true,
       render: v => v ? dayjs(v).format('YYYY-MM-DD') : '-' },
     {
-      title: '操作', fixed: 'right', width: 90,
+      title: '操作', fixed: 'right', width: 140,
       render: (_, record) => (
         <Space>
+          {onViewDetail && (
+            <Tooltip title="查看详情">
+              <Button size="small" icon={<EyeOutlined />} onClick={() => onViewDetail(record.id)} />
+            </Tooltip>
+          )}
           <Tooltip title="编辑"><Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} /></Tooltip>
-          <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
-            <Tooltip title="删除"><Button size="small" danger icon={<DeleteOutlined />} /></Tooltip>
-          </Popconfirm>
+          {(!permissions || permissions.has('inspection:delete')) && (
+            <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
+              <Tooltip title="删除"><Button size="small" danger icon={<DeleteOutlined />} /></Tooltip>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -377,12 +389,13 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={() => setModalOpen(false)}
-        width={720}
+        width={isMobile ? '100%' : 720}
+        style={isMobile ? { top: 0, maxWidth: '100vw', paddingBottom: 0 } : {}}
         destroyOnClose
       >
         <Form form={form} layout="vertical">
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item label="机房" name="datacenter" rules={[{ required: true, message: '请选择机房' }]}>
                 <Select
                   showSearch
@@ -396,7 +409,7 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item label="机柜" name="cabinet">
                 <Select
                   showSearch
@@ -413,12 +426,12 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item label="起始U" name="start_u">
                 <Input type="number" min={1} placeholder="如 4" onChange={triggerDeviceLookup} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item label="结束U" name="end_u" extra="单个U位则与起始U相同">
                 <Input type="number" min={1} placeholder="如 5（单U可不填）" onChange={triggerDeviceLookup} />
               </Form.Item>
@@ -455,12 +468,12 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
           </div>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item label="发现时间" name="found_at" rules={[{ required: true }]}>
                 <DatePicker showTime style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item label="巡检人" name="inspector" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
@@ -472,7 +485,7 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
           </Form.Item>
 
           <Row gutter={16}>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item label="问题等级" name="severity" rules={[{ required: true }]}>
                 <Select>
                   <Option value="严重">严重</Option>
@@ -481,7 +494,7 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item label="问题状态" name="status" rules={[{ required: true }]}>
                 <Select>
                   <Option value="待处理">待处理</Option>
@@ -490,7 +503,7 @@ export default function Inspections({ onGoToDevice }: InspectionsProps) {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item label="解决时间" name="resolved_at">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>

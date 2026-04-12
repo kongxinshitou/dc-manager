@@ -18,6 +18,7 @@ type Inspection struct {
 	Status     string     `json:"status"`      // 状态：待处理/处理中/已解决
 	ResolvedAt *time.Time `json:"resolved_at"` // 解决时间
 	Remark     string     `json:"remark"`      // 备注
+	Images     []InspectionImage `json:"images,omitempty" gorm:"foreignKey:InspectionID"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 }

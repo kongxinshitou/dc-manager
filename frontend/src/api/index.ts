@@ -1,9 +1,33 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: '/api',
   timeout: 30000,
 })
+
+// JWT 请求拦截器
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// 401 响应拦截器
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.reload()
+    }
+    return Promise.reject(error)
+  }
+)
+
+// ========== 类型定义 ==========
 
 export interface Device {
   id: number
@@ -50,8 +74,19 @@ export interface Inspection {
   status: string
   resolved_at: string | null
   remark: string
+  images?: InspectionImage[]
   created_at: string
   updated_at: string
+}
+
+export interface InspectionImage {
+  id: number
+  inspection_id: number
+  file_path: string
+  file_name: string
+  file_size: number
+  content_type: string
+  uploaded_at: string
 }
 
 export interface PageResult<T> {
@@ -92,7 +127,75 @@ export interface InspectionQuery {
   sort?: 'asc' | 'desc'
 }
 
-// Devices
+export interface UserInfo {
+  id: number
+  username: string
+  display_name: string
+  role_id: number
+  role_name: string
+  permissions: string[]
+  status?: string
+  role?: RoleInfo
+  created_at?: string
+}
+
+export interface RoleInfo {
+  id: number
+  name: string
+  display_name: string
+  permissions: string
+  is_system: boolean
+}
+
+export interface PermGroup {
+  label: string
+  permissions: { code: string; label: string }[]
+}
+
+// ========== Auth API ==========
+
+export const login = (username: string, password: string) =>
+  api.post<{ token: string; user: UserInfo }>('/auth/login', { username, password }).then(r => r.data)
+
+export const changePassword = (oldPassword: string, newPassword: string) =>
+  api.post('/auth/change-password', { old_password: oldPassword, new_password: newPassword }).then(r => r.data)
+
+// ========== User API ==========
+
+export const getUsers = () =>
+  api.get<UserInfo[]>('/users').then(r => r.data)
+
+export const createUser = (data: { username: string; password: string; display_name: string; role_id: number }) =>
+  api.post<UserInfo>('/users', data).then(r => r.data)
+
+export const updateUser = (id: number, data: Partial<UserInfo>) =>
+  api.put<UserInfo>(`/users/${id}`, data).then(r => r.data)
+
+export const resetPassword = (id: number, newPassword: string) =>
+  api.put(`/users/${id}/reset-password`, { new_password: newPassword }).then(r => r.data)
+
+export const deleteUser = (id: number) =>
+  api.delete(`/users/${id}`).then(r => r.data)
+
+// ========== Role API ==========
+
+export const getRoles = () =>
+  api.get<RoleInfo[]>('/roles').then(r => r.data)
+
+export const createRole = (data: { name: string; display_name: string; permissions: string[] }) =>
+  api.post<RoleInfo>('/roles', data).then(r => r.data)
+
+export const updateRole = (id: number, data: { name?: string; display_name?: string; permissions?: string[] }) =>
+  api.put<RoleInfo>(`/roles/${id}`, data).then(r => r.data)
+
+export const deleteRole = (id: number) =>
+  api.delete(`/roles/${id}`).then(r => r.data)
+
+export const getPermissionInfo = () =>
+  api.get<{ groups: PermGroup[]; all: string[] }>('/permissions').then(r => r.data)
+
+// ========== Device API ==========
+
 export const getDevices = (params: DeviceQuery) =>
   api.get<PageResult<Device>>('/devices', { params }).then(r => r.data)
 
@@ -137,7 +240,8 @@ export const importDevicesConfirm = (file: File) => {
   return api.post<{ inserted: number; skipped: number; message: string }>('/devices/import?confirm=true', form).then(r => r.data)
 }
 
-// Inspections
+// ========== Inspection API ==========
+
 export const getInspections = (params: InspectionQuery) =>
   api.get<PageResult<Inspection>>('/inspections', { params }).then(r => r.data)
 
@@ -168,7 +272,23 @@ export const importInspectionsConfirm = (file: File) => {
   return api.post<{ inserted: number; skipped: number; message: string }>('/inspections/import?confirm=true', form).then(r => r.data)
 }
 
-// Dashboard
+// ========== Image API ==========
+
+export const uploadInspectionImages = (inspectionId: number, files: File[]) => {
+  const form = new FormData()
+  files.forEach(f => form.append('images', f))
+  return api.post<InspectionImage[]>(`/inspections/${inspectionId}/images`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }).then(r => r.data)
+}
+
+export const deleteInspectionImage = (inspectionId: number, imageId: number) =>
+  api.delete(`/inspections/${inspectionId}/images/${imageId}`).then(r => r.data)
+
+export const getImageUrl = (filePath: string) => `/uploads/${filePath}`
+
+// ========== Dashboard API ==========
+
 export const getDashboard = (params?: { issues_page?: number; issues_page_size?: number }) =>
   api.get('/dashboard', { params }).then(r => r.data)
 
