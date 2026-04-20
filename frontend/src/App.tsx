@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react'
 import { Layout, Menu, theme, Dropdown, Grid, Avatar } from 'antd'
+import type { MenuProps } from 'antd'
 import {
   DashboardOutlined, DatabaseOutlined, AuditOutlined,
   TeamOutlined, SafetyOutlined, UserOutlined, LogoutOutlined,
+  HomeOutlined, SwapOutlined, CheckCircleOutlined,
+  BankOutlined, LayoutOutlined, SettingOutlined,
 } from '@ant-design/icons'
 import Dashboard from './pages/Dashboard'
 import Devices from './pages/Devices'
@@ -10,6 +13,9 @@ import Inspections from './pages/Inspections'
 import Users from './pages/Users'
 import Roles from './pages/Roles'
 import InspectionDetail from './pages/InspectionDetail'
+import DatacenterManage from './pages/DatacenterManage'
+import DatacenterLayout from './pages/DatacenterLayout'
+import Approvals from './pages/Approvals'
 import Login from './pages/Login'
 import type { UserInfo } from './api'
 
@@ -53,10 +59,20 @@ export default function App() {
   }
 
   const menuItems = useMemo(() => {
-    const items = [
-      { key: 'dashboard', icon: <DashboardOutlined />, label: '巡检大屏' },
-      { key: 'devices', icon: <DatabaseOutlined />, label: '设备台账' },
+    const items: MenuProps['items'] = [
+      { key: 'dashboard', icon: <DashboardOutlined />, label: '总览大屏' },
+      { key: 'devices', icon: <DatabaseOutlined />, label: '设备管理' },
       { key: 'inspections', icon: <AuditOutlined />, label: '巡检记录' },
+      { key: 'approvals', icon: <CheckCircleOutlined />, label: '审批管理' },
+      {
+        key: 'datacenter-group',
+        icon: <BankOutlined />,
+        label: '机房管理',
+        children: [
+          { key: 'datacenter-manage', icon: <HomeOutlined />, label: '机房配置' },
+          { key: 'datacenter-layout', icon: <LayoutOutlined />, label: '机房布局' },
+        ],
+      },
     ]
     if (isAdmin || permissions.has('user:manage')) {
       items.push({ key: 'users', icon: <TeamOutlined />, label: '用户管理' })
@@ -64,16 +80,25 @@ export default function App() {
     if (isAdmin || permissions.has('role:manage')) {
       items.push({ key: 'roles', icon: <SafetyOutlined />, label: '角色管理' })
     }
+    if (isAdmin || permissions.has('config:manage')) {
+      items.push({ key: 'system-config', icon: <SettingOutlined />, label: '系统配置' })
+    }
     return items
   }, [isAdmin, permissions])
 
+  // Get selected key for menu highlighting (use leaf key for submenus)
+  const selectedKey = page
+  const openKeys = ['datacenter-group']
+
   const renderPage = () => {
-    if (page === 'devices') return (
-      <Devices
-        focusDeviceId={focusDeviceId}
-        onFocusHandled={() => setFocusDeviceId(null)}
-      />
-    )
+    if (page === 'devices') {
+      return (
+        <Devices
+          focusDeviceId={focusDeviceId}
+          onFocusHandled={() => setFocusDeviceId(null)}
+        />
+      )
+    }
     if (page === 'inspections') return (
       <Inspections
         onGoToDevice={handleGoToDevice}
@@ -89,7 +114,10 @@ export default function App() {
       />
     )
     if (page === 'users') return <Users />
+    if (page === 'approvals') return <Approvals />
     if (page === 'roles') return <Roles />
+    if (page === 'datacenter-manage') return <DatacenterManage />
+    if (page === 'datacenter-layout') return <DatacenterLayout />
     return <Dashboard />
   }
 
@@ -105,7 +133,7 @@ export default function App() {
     <Layout style={{ minHeight: '100vh' }}>
       {!isMobile && (
         <Sider
-          width={180}
+          width={200}
           style={{ background: token.colorBgContainer, borderRight: `1px solid ${token.colorBorderSecondary}` }}
         >
           <div style={{
@@ -117,7 +145,8 @@ export default function App() {
           </div>
           <Menu
             mode="inline"
-            selectedKeys={[page]}
+            selectedKeys={[selectedKey]}
+            defaultOpenKeys={openKeys}
             items={menuItems}
             onClick={({ key }) => setPage(key)}
             style={{ borderRight: 0, paddingTop: 8 }}
@@ -134,7 +163,7 @@ export default function App() {
         }}>
           <span style={{ fontSize: 16, fontWeight: 600, color: token.colorText }}>
             {isMobile && <span style={{ marginRight: 8, color: token.colorPrimary, fontWeight: 700 }}>DC</span>}
-            {menuItems.find(m => m.key === page)?.label}
+            {getPageTitle(page, menuItems)}
           </span>
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -151,7 +180,7 @@ export default function App() {
         </Content>
       </Layout>
 
-      {/* 移动端底部导航 */}
+      {/* Mobile bottom navigation */}
       {isMobile && (
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0,
@@ -160,13 +189,13 @@ export default function App() {
           display: 'flex', justifyContent: 'space-around',
           padding: '6px 0', zIndex: 1000,
         }}>
-          {menuItems.slice(0, 4).map(item => (
+          {getMobileMenuItems(page).map(item => (
             <div
               key={item.key}
               onClick={() => setPage(item.key)}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                color: page === item.key ? token.colorPrimary : token.colorTextSecondary,
+                color: page === item.key || (page === 'devices' && item.key === 'devices') ? token.colorPrimary : token.colorTextSecondary,
                 fontSize: 11, cursor: 'pointer', minWidth: 56, padding: '4px 0',
               }}
             >
@@ -178,4 +207,28 @@ export default function App() {
       )}
     </Layout>
   )
+}
+
+function getPageTitle(page: string, menuItems: MenuProps['items']): string {
+  const titles: Record<string, string> = {
+    'dashboard': '总览大屏',
+    'devices': '设备管理',
+    'inspections': '巡检记录',
+    'approvals': '审批管理',
+    'datacenter-manage': '机房配置',
+    'datacenter-layout': '机房布局',
+    'users': '用户管理',
+    'roles': '角色管理',
+    'system-config': '系统配置',
+  }
+  return titles[page] || '数据中心管理'
+}
+
+function getMobileMenuItems(page: string) {
+  return [
+    { key: 'dashboard', icon: <DashboardOutlined />, label: '总览' },
+    { key: 'devices', icon: <DatabaseOutlined />, label: '设备' },
+    { key: 'inspections', icon: <AuditOutlined />, label: '巡检' },
+    { key: 'datacenter-layout', icon: <BankOutlined />, label: '机房' },
+  ]
 }

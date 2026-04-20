@@ -11,6 +11,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
       - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin123}
       - MCP_API_KEY=${MCP_API_KEY:-}
+      - EXCEL_LAYOUT_PATH=/app/001_中联重科数据中心台账_20260226.xlsx
       - TZ=Asia/Shanghai
     volumes:
       - db-data:/app/data

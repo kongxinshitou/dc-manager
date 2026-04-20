@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"dcmanager/database"
 	"dcmanager/models"
+	"dcmanager/services"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,6 +45,7 @@ func parseUPosition(pos string) (startU, endU *int) {
 var allowedDeviceOrderBy = map[string]bool{
 	"id": true, "asset_number": true, "status": true, "datacenter": true,
 	"brand": true, "device_type": true, "ip_address": true, "owner": true,
+	"device_status": true, "sub_status": true, "vendor": true, "custodian": true,
 }
 
 func GetDevices(c *gin.Context) {
@@ -76,10 +78,21 @@ func GetDevices(c *gin.Context) {
 	var devices []models.Device
 	db.Order(orderBy + " " + sort).Offset((query.Page - 1) * query.PageSize).Limit(query.PageSize).Find(&devices)
 
+	// Attach warranty status to each device
+	type deviceWithWarranty struct {
+		models.Device
+		WarrantyStatus string `json:"warranty_status"`
+	}
+	var result []deviceWithWarranty
+	for _, d := range devices {
+		ws := services.CalcWarrantyStatus(d.WarrantyStart, d.WarrantyEnd, d.WarrantyYears)
+		result = append(result, deviceWithWarranty{Device: d, WarrantyStatus: ws})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"total": total,
 		"page":  query.Page,
-		"data":  devices,
+		"data":  result,
 	})
 }
 
@@ -91,6 +104,12 @@ func buildDeviceQuery(query *models.DeviceQuery) *gorm.DB {
 	}
 	if query.Status != "" {
 		db = db.Where("status LIKE ?", "%"+query.Status+"%")
+	}
+	if query.DeviceStatus != "" {
+		db = db.Where("device_status = ?", query.DeviceStatus)
+	}
+	if query.SubStatus != "" {
+		db = db.Where("sub_status = ?", query.SubStatus)
 	}
 	if query.Datacenter != "" {
 		db = db.Where("datacenter LIKE ?", "%"+query.Datacenter+"%")
@@ -113,6 +132,18 @@ func buildDeviceQuery(query *models.DeviceQuery) *gorm.DB {
 	if query.Owner != "" {
 		db = db.Where("owner LIKE ?", "%"+query.Owner+"%")
 	}
+	if query.Vendor != "" {
+		db = db.Where("vendor LIKE ?", "%"+query.Vendor+"%")
+	}
+	if query.ContractNo != "" {
+		db = db.Where("contract_no LIKE ?", "%"+query.ContractNo+"%")
+	}
+	if query.FinanceNo != "" {
+		db = db.Where("finance_no LIKE ?", "%"+query.FinanceNo+"%")
+	}
+	if query.Custodian != "" {
+		db = db.Where("custodian LIKE ?", "%"+query.Custodian+"%")
+	}
 	if query.Keyword != "" {
 		kw := "%" + query.Keyword + "%"
 		db = db.Where("datacenter LIKE ? OR cabinet LIKE ? OR brand LIKE ? OR model LIKE ? OR serial_number LIKE ? OR ip_address LIKE ? OR purpose LIKE ? OR owner LIKE ? OR remark LIKE ?",
@@ -128,7 +159,11 @@ func GetDevice(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "device not found"})
 		return
 	}
-	c.JSON(http.StatusOK, device)
+	ws := services.CalcWarrantyStatus(device.WarrantyStart, device.WarrantyEnd, device.WarrantyYears)
+	c.JSON(http.StatusOK, gin.H{
+		"device":          device,
+		"warranty_status": ws,
+	})
 }
 
 func CreateDevice(c *gin.Context) {
@@ -189,17 +224,25 @@ func BatchDeleteDevices(c *gin.Context) {
 
 func GetDeviceOptions(c *gin.Context) {
 	type Option struct {
-		Sources     []string `json:"sources"`
-		Datacenters []string `json:"datacenters"`
-		DeviceTypes []string `json:"device_types"`
-		Brands      []string `json:"brands"`
+		Sources        []string `json:"sources"`
+		Datacenters    []string `json:"datacenters"`
+		DeviceTypes    []string `json:"device_types"`
+		Brands         []string `json:"brands"`
+		DeviceStatuses []string `json:"device_statuses"`
+		SubStatuses    []string `json:"sub_statuses"`
+		Vendors        []string `json:"vendors"`
+		Custodians     []string `json:"custodians"`
 	}
-	var sources, datacenters, deviceTypes, brands []string
+	var sources, datacenters, deviceTypes, brands, deviceStatuses, subStatuses, vendors, custodians []string
 	database.DB.Model(&models.Device{}).Distinct("source").Pluck("source", &sources)
 	database.DB.Model(&models.Device{}).Distinct("datacenter").Where("datacenter != ''").Pluck("datacenter", &datacenters)
 	database.DB.Model(&models.Device{}).Distinct("device_type").Where("device_type != ''").Pluck("device_type", &deviceTypes)
 	database.DB.Model(&models.Device{}).Distinct("brand").Where("brand != ''").Pluck("brand", &brands)
-	c.JSON(http.StatusOK, Option{sources, datacenters, deviceTypes, brands})
+	database.DB.Model(&models.Device{}).Distinct("device_status").Where("device_status != ''").Pluck("device_status", &deviceStatuses)
+	database.DB.Model(&models.Device{}).Distinct("sub_status").Where("sub_status != ''").Pluck("sub_status", &subStatuses)
+	database.DB.Model(&models.Device{}).Distinct("vendor").Where("vendor != ''").Pluck("vendor", &vendors)
+	database.DB.Model(&models.Device{}).Distinct("custodian").Where("custodian != ''").Pluck("custodian", &custodians)
+	c.JSON(http.StatusOK, Option{sources, datacenters, deviceTypes, brands, deviceStatuses, subStatuses, vendors, custodians})
 }
 
 func ExportDevices(c *gin.Context) {
@@ -218,8 +261,9 @@ func ExportDevices(c *gin.Context) {
 	sheet := "设备台账"
 	f.SetSheetName("Sheet1", sheet)
 
-	headers := []string{"ID", "来源", "状态", "机房", "机柜", "U位", "品牌", "型号", "类型",
-		"序列号", "IP地址", "管理IP", "操作系统", "用途", "责任人", "维保截止", "资产编号", "备注"}
+	headers := []string{"ID", "来源", "状态", "设备状态", "子状态", "机房", "机柜", "U位", "品牌",
+		"型号", "类型", "序列号", "IP地址", "管理IP", "操作系统", "用途", "责任人", "维保截止",
+		"资产编号", "厂商", "到货日期", "维保年限", "合同号", "财务编号", "存放位置", "责任人", "备注"}
 	for i, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheet, cell, h)
@@ -234,9 +278,11 @@ func ExportDevices(c *gin.Context) {
 
 	for row, d := range devices {
 		vals := []any{
-			d.ID, d.Source, d.Status, d.Datacenter, d.Cabinet, d.UPosition,
+			d.ID, d.Source, d.Status, d.DeviceStatus, d.SubStatus, d.Datacenter, d.Cabinet, d.UPosition,
 			d.Brand, d.Model, d.DeviceType, d.SerialNumber, d.IPAddress, d.MgmtIP,
-			d.OS, d.Purpose, d.Owner, fmtDate(d.WarrantyEnd), d.AssetNumber, d.Remark,
+			d.OS, d.Purpose, d.Owner, fmtDate(d.WarrantyEnd), d.AssetNumber,
+			d.Vendor, fmtDate(d.ArrivalDate), d.WarrantyYears, d.ContractNo, d.FinanceNo,
+			d.StorageLocation, d.Custodian, d.Remark,
 		}
 		for col, v := range vals {
 			cell, _ := excelize.CoordinatesToCellName(col+1, row+2)
@@ -370,6 +416,12 @@ func ImportDevices(c *gin.Context) {
 				WarrantyStart:   getCellDate(row, "维保起始时间"),
 				WarrantyEnd:     getCellDate(row, "维保结束时间"),
 				ManufactureDate: getCellDate(row, "设备出厂时间"),
+				Vendor:          getCol(row, "厂商"),
+				ArrivalDate:     getCellDate(row, "到货日期"),
+				ContractNo:      getCol(row, "合同号"),
+				FinanceNo:       getCol(row, "财务编号"),
+				StorageLocation: getCol(row, "存放位置"),
+				Custodian:       getCol(row, "责任人", "保管员"),
 			}
 
 			if device.Brand == "" && device.Model == "" && device.SerialNumber == "" && device.IPAddress == "" {
@@ -401,6 +453,16 @@ func ImportDevices(c *gin.Context) {
 			if err := database.DB.Where("serial_number = ?", d.SerialNumber).First(&existing).Error; err == nil {
 				skipped++
 				continue
+			}
+		}
+		// Set default status for imported devices
+		if d.DeviceStatus == "" {
+			if d.Datacenter != "" && d.Cabinet != "" && d.StartU != nil {
+				d.DeviceStatus = "out_stock"
+				d.SubStatus = "racked"
+			} else {
+				d.DeviceStatus = "in_stock"
+				d.SubStatus = "new_purchase"
 			}
 		}
 		if err := database.DB.Create(&d).Error; err != nil {

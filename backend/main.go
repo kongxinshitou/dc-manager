@@ -61,6 +61,39 @@ func main() {
 			auth.DELETE("/devices/batch", middleware.PermissionRequired("device:delete"), handlers.BatchDeleteDevices)
 			auth.POST("/devices/import", middleware.PermissionRequired("device:import"), handlers.ImportDevices)
 
+			// 设备工作流操作
+			auth.POST("/devices/:id/operate", middleware.PermissionRequired("device:write"), handlers.OperateDevice)
+			auth.GET("/devices/:id/operations", handlers.GetDeviceOperations)
+			auth.PUT("/devices/batch-custodian", middleware.PermissionRequired("device:write"), handlers.BatchUpdateCustodian)
+
+			// 系统配置
+			auth.GET("/config/:key", middleware.PermissionRequired("config:manage"), handlers.GetConfig)
+			auth.PUT("/config/:key", middleware.PermissionRequired("config:manage"), handlers.UpdateConfig)
+
+			// 审批管理
+			auth.POST("/approvals", middleware.PermissionRequired("approval:submit"), handlers.SubmitApproval)
+			auth.GET("/approvals", middleware.PermissionRequired("approval:view"), handlers.GetApprovals)
+			auth.GET("/approvals/:id", middleware.PermissionRequired("approval:view"), handlers.GetApproval)
+			auth.PUT("/approvals/:id/approve", middleware.PermissionRequired("approval:approve"), handlers.ApproveApproval)
+			auth.PUT("/approvals/:id/reject", middleware.PermissionRequired("approval:approve"), handlers.RejectApproval)
+			auth.PUT("/approvals/:id/execute", middleware.PermissionRequired("approval:execute"), handlers.ExecuteApproval)
+			auth.PUT("/approvals/:id/cancel", middleware.PermissionRequired("approval:submit"), handlers.CancelApproval)
+
+			// 机房管理
+			auth.GET("/datacenters", handlers.GetDatacenters)
+			auth.POST("/datacenters", middleware.PermissionRequired("datacenter:manage"), handlers.CreateDatacenter)
+			auth.PUT("/datacenters/:id", middleware.PermissionRequired("datacenter:manage"), handlers.UpdateDatacenter)
+			auth.DELETE("/datacenters/:id", middleware.PermissionRequired("datacenter:manage"), handlers.DeleteDatacenter)
+			auth.GET("/datacenters/:id/columns", handlers.GetDatacenterColumns)
+			auth.POST("/datacenters/:id/columns", middleware.PermissionRequired("datacenter:manage"), handlers.SetDatacenterColumns)
+			auth.GET("/datacenters/:id/rows", handlers.GetDatacenterRows)
+			auth.POST("/datacenters/:id/rows", middleware.PermissionRequired("datacenter:manage"), handlers.SetDatacenterRows)
+			auth.GET("/datacenters/:id/cabinets", handlers.GetDatacenterCabinets)
+			auth.POST("/datacenters/:id/cabinets/generate", middleware.PermissionRequired("datacenter:manage"), handlers.GenerateCabinets)
+			auth.GET("/datacenters/:id/layout", handlers.GetDatacenterLayout)
+			auth.PUT("/cabinets/:id", middleware.PermissionRequired("datacenter:manage"), handlers.UpdateCabinet)
+			auth.GET("/cabinets/:id/devices", handlers.GetCabinetDevices)
+
 			// 巡检记录 - 读取
 			auth.GET("/inspections", handlers.GetInspections)
 			auth.GET("/inspections/:id", handlers.GetInspection)
@@ -72,7 +105,7 @@ func main() {
 			auth.DELETE("/inspections/batch", middleware.PermissionRequired("inspection:delete"), handlers.BatchDeleteInspections)
 			auth.POST("/inspections/import", middleware.PermissionRequired("inspection:import"), handlers.ImportInspections)
 
-				// 巡检图片
+			// 巡检图片
 			auth.GET("/inspections/:id/images", handlers.GetInspectionImages)
 			auth.POST("/inspections/:id/images", middleware.PermissionRequired("image:upload"), handlers.UploadInspectionImages)
 			auth.DELETE("/inspections/:id/images/:imageId", middleware.PermissionRequired("image:delete"), handlers.DeleteInspectionImage)

@@ -54,8 +54,34 @@ export interface Device {
   purpose: string
   owner: string
   remark: string
+  // New fields
+  vendor: string
+  arrival_date: string | null
+  warranty_years: number
+  contract_no: string
+  finance_no: string
+  device_status: string
+  sub_status: string
+  storage_location: string
+  custodian: string
+  scrap_remark: string
+  dispatch_address: string
+  dispatch_custodian: string
+  applicant: string
+  project_name: string
+  business_unit: string
+  department: string
+  u_count: number | null
+  business_address: string
+  vip_address: string
+  datacenter_id: number | null
+  cabinet_id: number | null
   created_at: string
   updated_at: string
+}
+
+export interface DeviceWithWarranty extends Device {
+  warranty_status: string
 }
 
 export interface Inspection {
@@ -98,6 +124,8 @@ export interface PageResult<T> {
 export interface DeviceQuery {
   source?: string
   status?: string
+  device_status?: string
+  sub_status?: string
   datacenter?: string
   cabinet?: string
   brand?: string
@@ -105,6 +133,10 @@ export interface DeviceQuery {
   device_type?: string
   ip_address?: string
   owner?: string
+  vendor?: string
+  contract_no?: string
+  finance_no?: string
+  custodian?: string
   keyword?: string
   page?: number
   page_size?: number
@@ -197,10 +229,10 @@ export const getPermissionInfo = () =>
 // ========== Device API ==========
 
 export const getDevices = (params: DeviceQuery) =>
-  api.get<PageResult<Device>>('/devices', { params }).then(r => r.data)
+  api.get<PageResult<DeviceWithWarranty>>('/devices', { params }).then(r => r.data)
 
 export const getDevice = (id: number) =>
-  api.get<Device>(`/devices/${id}`).then(r => r.data)
+  api.get<{ device: Device; warranty_status: string }>(`/devices/${id}`).then(r => r.data)
 
 export const createDevice = (data: Partial<Device>) =>
   api.post<Device>('/devices', data).then(r => r.data)
@@ -215,7 +247,7 @@ export const batchDeleteDevices = (ids: number[]) =>
   api.delete<{ deleted: number }>('/devices/batch', { data: { ids } }).then(r => r.data)
 
 export const getDeviceOptions = () =>
-  api.get<{ sources: string[]; datacenters: string[]; device_types: string[]; brands: string[] }>('/devices/options').then(r => r.data)
+  api.get<{ sources: string[]; datacenters: string[]; device_types: string[]; brands: string[]; device_statuses: string[]; sub_statuses: string[]; vendors: string[]; custodians: string[] }>('/devices/options').then(r => r.data)
 
 export const getDeviceCabinets = (datacenter: string) =>
   api.get<{ cabinets: string[] }>('/devices/cabinets', { params: { datacenter } }).then(r => r.data)
@@ -239,6 +271,186 @@ export const importDevicesConfirm = (file: File) => {
   form.append('file', file)
   return api.post<{ inserted: number; skipped: number; message: string }>('/devices/import?confirm=true', form).then(r => r.data)
 }
+
+// ========== Device Workflow API ==========
+
+export interface DeviceOperation {
+  id: number
+  device_id: number
+  operation_type: string
+  from_status: string
+  to_status: string
+  operator_id: number
+  approval_id: number | null
+  details: string
+  remark: string
+  created_at: string
+}
+
+export const operateDevice = (id: number, operation: string, details: Record<string, unknown>, remark?: string) =>
+  api.post<Device>(`/devices/${id}/operate`, { operation, details, remark }).then(r => r.data)
+
+export const getDeviceOperations = (id: number, page?: number) =>
+  api.get<PageResult<DeviceOperation>>(`/devices/${id}/operations`, { params: { page, page_size: 20 } }).then(r => r.data)
+
+export const batchUpdateCustodian = (deviceIds: number[], custodian: string) =>
+  api.put<{ updated: number }>('/devices/batch-custodian', { device_ids: deviceIds, custodian }).then(r => r.data)
+
+// ========== System Config API ==========
+
+export interface SystemConfig {
+  key: string
+  value: string
+}
+
+export const getSystemConfig = (key: string) =>
+  api.get<SystemConfig>(`/config/${key}`).then(r => r.data)
+
+export const updateSystemConfig = (key: string, value: string) =>
+  api.put<SystemConfig>(`/config/${key}`, { value }).then(r => r.data)
+
+// ========== Datacenter API ==========
+
+export interface Datacenter {
+  id: number
+  name: string
+  remark: string
+  campus: string
+  location: string
+  floor: string
+  room: string
+  contact: string
+  operation_mode: string
+  current_status: string
+  max_u: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CabinetColumn {
+  id?: number
+  datacenter_id?: number
+  name: string
+  sort_order: number
+  column_type: string
+}
+
+export interface CabinetRow {
+  id?: number
+  datacenter_id?: number
+  name: string
+  sort_order: number
+}
+
+export interface Cabinet {
+  id: number
+  datacenter_id: number
+  column_id: number | null
+  row_id: number | null
+  name: string
+  height: number
+  width: number
+  depth: number
+  cabinet_type: string
+  remark: string
+  devices?: any[]
+  used_u?: number
+}
+
+export interface DatacenterLayout {
+  datacenter: Datacenter
+  columns: CabinetColumn[]
+  rows: CabinetRow[]
+  cabinets: Cabinet[]
+}
+
+export const getDatacenters = () =>
+  api.get<Datacenter[]>('/datacenters').then(r => r.data)
+
+export const createDatacenter = (data: Partial<Datacenter>) =>
+  api.post<Datacenter>('/datacenters', data).then(r => r.data)
+
+export const updateDatacenter = (id: number, data: Partial<Datacenter>) =>
+  api.put<Datacenter>(`/datacenters/${id}`, data).then(r => r.data)
+
+export const deleteDatacenter = (id: number) =>
+  api.delete(`/datacenters/${id}`).then(r => r.data)
+
+export const getDatacenterColumns = (id: number) =>
+  api.get<CabinetColumn[]>(`/datacenters/${id}/columns`).then(r => r.data)
+
+export const setDatacenterColumns = (id: number, columns: CabinetColumn[]) =>
+  api.post<CabinetColumn[]>(`/datacenters/${id}/columns`, { columns }).then(r => r.data)
+
+export const getDatacenterRows = (id: number) =>
+  api.get<CabinetRow[]>(`/datacenters/${id}/rows`).then(r => r.data)
+
+export const setDatacenterRows = (id: number, rows: CabinetRow[]) =>
+  api.post<CabinetRow[]>(`/datacenters/${id}/rows`, { rows }).then(r => r.data)
+
+export const getDatacenterCabinets = (id: number) =>
+  api.get<Cabinet[]>(`/datacenters/${id}/cabinets`).then(r => r.data)
+
+export const generateCabinets = (id: number, defaultHeight?: number) =>
+  api.post<{ generated: number; cabinets: Cabinet[] }>(`/datacenters/${id}/cabinets/generate`, { default_height: defaultHeight }).then(r => r.data)
+
+export const updateCabinet = (id: number, data: Partial<Cabinet>) =>
+  api.put<Cabinet>(`/cabinets/${id}`, data).then(r => r.data)
+
+export const getCabinetDevices = (id: number) =>
+  api.get<{ cabinet: Cabinet; devices: Device[] }>(`/cabinets/${id}/devices`).then(r => r.data)
+
+export const getDatacenterLayout = (id: number) =>
+  api.get<DatacenterLayout>(`/datacenters/${id}/layout`).then(r => r.data)
+
+// ========== Approval API ==========
+
+export interface Approval {
+  id: number
+  approval_no: string
+  device_id: number
+  operation_type: string
+  request_data: string
+  applicant_id: number
+  applicant_name: string
+  approver_id: number | null
+  approver_name: string
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'cancelled'
+  approve_remark: string
+  approved_at: string | null
+  executed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ApprovalQuery {
+  status?: string
+  operation_type?: string
+  tab?: string
+  page?: number
+  page_size?: number
+}
+
+export const submitApproval = (data: { device_id: number; operation_type: string; request_data: Record<string, unknown> }) =>
+  api.post<Approval>('/approvals', data).then(r => r.data)
+
+export const getApprovals = (params: ApprovalQuery) =>
+  api.get<PageResult<Approval>>('/approvals', { params }).then(r => r.data)
+
+export const getApproval = (id: number) =>
+  api.get<{ approval: Approval; device: Device }>(`/approvals/${id}`).then(r => r.data)
+
+export const approveApproval = (id: number, remark?: string) =>
+  api.put<Approval>(`/approvals/${id}/approve`, { remark }).then(r => r.data)
+
+export const rejectApproval = (id: number, remark?: string) =>
+  api.put<Approval>(`/approvals/${id}/reject`, { remark }).then(r => r.data)
+
+export const executeApproval = (id: number) =>
+  api.put<Approval>(`/approvals/${id}/execute`).then(r => r.data)
+
+export const cancelApproval = (id: number) =>
+  api.put<Approval>(`/approvals/${id}/cancel`).then(r => r.data)
 
 // ========== Inspection API ==========
 

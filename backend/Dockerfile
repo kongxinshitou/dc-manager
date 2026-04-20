@@ -22,6 +22,8 @@ WORKDIR /app
 COPY --from=builder /app/dcmanager .
 # 将 DB 作为初始数据备份，首次启动时由 entrypoint 复制到 volume
 COPY dc_manager.db /app/dc_manager.db.init
+# Copy Excel layout file for auto-import
+COPY 001_中联重科数据中心台账_20260226.xlsx /app/001_中联重科数据中心台账_20260226.xlsx
 
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
