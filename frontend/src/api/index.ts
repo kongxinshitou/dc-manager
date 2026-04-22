@@ -132,6 +132,7 @@ export interface DeviceQuery {
   model?: string
   device_type?: string
   ip_address?: string
+  mgmt_ip?: string
   owner?: string
   vendor?: string
   contract_no?: string
@@ -295,19 +296,6 @@ export const getDeviceOperations = (id: number, page?: number) =>
 
 export const batchUpdateCustodian = (deviceIds: number[], custodian: string) =>
   api.put<{ updated: number }>('/devices/batch-custodian', { device_ids: deviceIds, custodian }).then(r => r.data)
-
-// ========== System Config API ==========
-
-export interface SystemConfig {
-  key: string
-  value: string
-}
-
-export const getSystemConfig = (key: string) =>
-  api.get<SystemConfig>(`/config/${key}`).then(r => r.data)
-
-export const updateSystemConfig = (key: string, value: string) =>
-  api.put<SystemConfig>(`/config/${key}`, { value }).then(r => r.data)
 
 // ========== Datacenter API ==========
 

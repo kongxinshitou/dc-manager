@@ -129,6 +129,9 @@ func buildDeviceQuery(query *models.DeviceQuery) *gorm.DB {
 	if query.IPAddress != "" {
 		db = db.Where("ip_address LIKE ?", "%"+query.IPAddress+"%")
 	}
+	if query.MgmtIP != "" {
+		db = db.Where("mgmt_ip LIKE ?", "%"+query.MgmtIP+"%")
+	}
 	if query.Owner != "" {
 		db = db.Where("owner LIKE ?", "%"+query.Owner+"%")
 	}

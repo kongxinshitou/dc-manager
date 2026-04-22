@@ -5,7 +5,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import {
-  getApprovals, approveApproval, rejectApproval, executeApproval, cancelApproval,
+  getApprovals, getApproval, approveApproval, rejectApproval, executeApproval, cancelApproval,
 } from '../api'
 import type { Approval, ApprovalQuery } from '../api'
 

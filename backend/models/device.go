@@ -66,6 +66,7 @@ type DeviceQuery struct {
 	Model        string `form:"model"`
 	DeviceType   string `form:"device_type"`
 	IPAddress    string `form:"ip_address"`
+	MgmtIP       string `form:"mgmt_ip"`
 	Owner        string `form:"owner"`
 	Vendor       string `form:"vendor"`
 	ContractNo   string `form:"contract_no"`

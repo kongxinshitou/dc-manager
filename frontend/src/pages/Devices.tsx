@@ -7,6 +7,7 @@ import {
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined,
   DownloadOutlined, UploadOutlined, MoreOutlined,
+  DownOutlined, UpOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { ColumnsType, TableProps } from 'antd/es/table'
@@ -14,17 +15,13 @@ import type { SorterResult } from 'antd/es/table/interface'
 import {
   getDevices, getDevice, createDevice, updateDevice, deleteDevice,
   getDeviceOptions, batchDeleteDevices, exportDevices,
-  importDevicesPreview, importDevicesConfirm, operateDevice,
+  importDevicesPreview, importDevicesConfirm,
   submitApproval, getDatacenters, getDatacenterCabinets,
 } from '../api'
 import type { Device, DeviceQuery, DeviceWithWarranty, Datacenter, Cabinet } from '../api'
 import ResponsiveTable from '../components/ResponsiveTable'
 
 const { Option } = Select
-
-const statusColor: Record<string, string> = {
-  Online: 'green', online: 'green', onlion: 'green', Offline: 'red', offline: 'red',
-}
 
 const deviceStatusLabel: Record<string, string> = {
   in_stock: '入库', out_stock: '出库',
@@ -34,6 +31,24 @@ const subStatusLabel: Record<string, string> = {
   new_purchase: '新购', recycled: '回收', racked: '上架',
   dispatched: '外发', scrapped: '报废', unracked: '下架',
 }
+
+// 设备状态与子状态的耦合关系：只有这 6 种组合是合法的
+const subStatusByDeviceStatus: Record<string, { value: string; label: string }[]> = {
+  in_stock: [
+    { value: 'new_purchase', label: '新购' },
+    { value: 'recycled', label: '回收' },
+  ],
+  out_stock: [
+    { value: 'racked', label: '上架' },
+    { value: 'dispatched', label: '外发' },
+    { value: 'scrapped', label: '报废' },
+    { value: 'unracked', label: '下架' },
+  ],
+}
+const allSubStatusOptions = [
+  ...subStatusByDeviceStatus.in_stock,
+  ...subStatusByDeviceStatus.out_stock,
+]
 
 const warrantyColor: Record<string, string> = {
   in_warranty: 'green', out_of_warranty: 'red', unknown: 'default',
@@ -46,6 +61,87 @@ const warrantyLabel: Record<string, string> = {
 interface DevicesProps {
   focusDeviceId?: number | null
   onFocusHandled?: () => void
+}
+
+interface DashboardConfig {
+  kind: string
+  label: string
+  uid: string
+  slug: string
+  variableName: string
+  match: (deviceType?: string | null, brand?: string | null) => boolean
+}
+
+type DashboardState =
+  | { config: DashboardConfig; mgmtIp: string }
+  | { config: null; mgmtIp: null }
+
+const GRAFANA_BASE_URL = 'http://10.103.67.135:3000'
+
+const normalizeBrand = (brand?: string | null) => (brand || '').trim().toLowerCase()
+const normalizeDeviceType = (t?: string | null) => (t || '').trim().toLowerCase()
+const normalizeMgmtIp = (mgmtIp?: string | null) => {
+  const trimmed = (mgmtIp || '').trim()
+  return trimmed || null
+}
+
+const isLenovoBrand = (brand?: string | null) => {
+  const b = normalizeBrand(brand)
+  return b === 'lenovo' || b === '联想'
+}
+
+const isDellBrand = (brand?: string | null) => normalizeBrand(brand) === 'dell'
+
+const isServerType = (deviceType?: string | null) => {
+  const t = normalizeDeviceType(deviceType)
+  return t === '服务器' || t === 'server'
+}
+
+// (device_type, brand) → Grafana dashboard mapping. Add new combos here.
+const DASHBOARD_CONFIGS: DashboardConfig[] = [
+  {
+    kind: 'lenovo-server',
+    label: 'Lenovo 服务器',
+    uid: 'lenovo-xcc-hw-v4',
+    slug: 'dc5034d',
+    variableName: 'lenovo_host',
+    match: (t, b) => isServerType(t) && isLenovoBrand(b),
+  },
+  {
+    kind: 'dell-server',
+    label: 'Dell 服务器',
+    uid: 't8jeRgbNz',
+    slug: 'e69c8d-e58aa1-e599a8-dell',
+    variableName: 'dell_host',
+    match: (t, b) => isServerType(t) && isDellBrand(b),
+  },
+]
+
+const matchDashboardConfig = (record: Pick<Device, 'device_type' | 'brand'>) =>
+  DASHBOARD_CONFIGS.find(cfg => cfg.match(record.device_type, record.brand)) || null
+
+const canViewDeviceStatus = (record: Pick<Device, 'device_type' | 'brand'>) =>
+  matchDashboardConfig(record) !== null
+
+const resolveDashboardState = (record: Pick<Device, 'device_type' | 'brand' | 'mgmt_ip'>): DashboardState => {
+  const mgmtIp = normalizeMgmtIp(record.mgmt_ip)
+  const config = matchDashboardConfig(record)
+  if (config && mgmtIp) {
+    return { config, mgmtIp }
+  }
+  return { config: null, mgmtIp: null }
+}
+
+const buildGrafanaUrl = (config: DashboardConfig, mgmtIp: string) => {
+  const params = new URLSearchParams({
+    orgId: '1',
+    [`var-${config.variableName}`]: mgmtIp,
+    '_dash.hideTimePicker': 'flase',
+    '_dash.hideVariables': 'true',
+    '_dash.hideLinks': 'true',
+  })
+
+  return `${GRAFANA_BASE_URL}/d/${config.uid}/${config.slug}?kiosk&${params.toString()}`
 }
 
 export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps) {
@@ -65,9 +161,28 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
   const [opType, setOpType] = useState<string>('')
   const [opDevice, setOpDevice] = useState<Device | null>(null)
   const [opForm] = Form.useForm()
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [statusDevice, setStatusDevice] = useState<DeviceWithWarranty | null>(null)
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+
+  // Advanced filter toggle
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [filterForm] = Form.useForm()
+  const filterDeviceStatus = Form.useWatch('device_status', filterForm)
+  const subStatusOptions = filterDeviceStatus
+    ? subStatusByDeviceStatus[filterDeviceStatus] || []
+    : allSubStatusOptions
+
+  const handleDeviceStatusChange = (value?: string) => {
+    const current = filterForm.getFieldValue('sub_status')
+    if (!current) return
+    const allowed = value ? subStatusByDeviceStatus[value] || [] : allSubStatusOptions
+    if (!allowed.some(o => o.value === current)) {
+      filterForm.setFieldValue('sub_status', undefined)
+    }
+  }
 
   // Datacenter & cabinet options for rack form
   const [dcList, setDcList] = useState<Datacenter[]>([])
@@ -116,6 +231,7 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
   }
 
   const handleReset = () => {
+    filterForm.resetFields()
     const q: DeviceQuery = { page: 1, page_size: 20 }
     setQuery(q)
     fetchData(q)
@@ -150,6 +266,16 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
       arrival_date: record.arrival_date ? dayjs(record.arrival_date) : null,
     })
     setModalOpen(true)
+  }
+
+  const openStatusModal = (record: DeviceWithWarranty) => {
+    setStatusDevice(record)
+    setStatusModalOpen(true)
+  }
+
+  const closeStatusModal = () => {
+    setStatusModalOpen(false)
+    setStatusDevice(null)
   }
 
   const handleDelete = async (id: number) => {
@@ -344,7 +470,7 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
     { title: '维保截止', dataIndex: 'warranty_end', width: 100,
       render: v => v ? dayjs(v).format('YYYY-MM-DD') : '-' },
     {
-      title: '操作', fixed: 'right', width: 200,
+      title: '操作', fixed: 'right', width: 300,
       render: (_, record) => {
         const ops = getAvailableOps(record)
         return (
@@ -353,6 +479,11 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
             <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
               <Tooltip title="删除"><Button size="small" danger icon={<DeleteOutlined />} /></Tooltip>
             </Popconfirm>
+            {canViewDeviceStatus(record) && (
+              <Button size="small" onClick={() => openStatusModal(record)}>
+                查看设备状态
+              </Button>
+            )}
             {ops.slice(0, 2).map(o => (
               <Button key={o.key} size="small" type={o.key === 'rack' ? 'primary' : 'default'} onClick={() => openOpModal(record, o.key)}>
                 {o.label}
@@ -464,45 +595,125 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
 
   return (
     <div style={{ padding: 16 }}>
-      <Card size="small" style={{ marginBottom: 12 }}>
-        <Form layout="inline" onFinish={handleSearch}>
-          <Form.Item name="keyword"><Input placeholder="全局搜索" prefix={<SearchOutlined />} allowClear style={{ width: 160 }} /></Form.Item>
-          <Form.Item name="device_status">
-            <Select placeholder="设备状态" allowClear style={{ width: 110 }}>
-              <Option value="in_stock">入库</Option>
-              <Option value="out_stock">出库</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="sub_status">
-            <Select placeholder="子状态" allowClear style={{ width: 100 }}>
-              <Option value="new_purchase">新购</Option>
-              <Option value="recycled">回收</Option>
-              <Option value="racked">上架</Option>
-              <Option value="dispatched">外发</Option>
-              <Option value="scrapped">报废</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="datacenter">
-            <Select placeholder="机房" allowClear style={{ width: 130 }}>
-              {(options.datacenters || []).map((d: string) => <Option key={d} value={d}>{d}</Option>)}
-            </Select>
-          </Form.Item>
-          <Form.Item name="source">
-            <Select placeholder="来源区域" allowClear style={{ width: 110 }}>
-              {(options.sources || []).map((s: string) => <Option key={s} value={s}>{s}</Option>)}
-            </Select>
-          </Form.Item>
-          <Form.Item name="brand">
-            <Select placeholder="品牌" allowClear style={{ width: 90 }}>
-              {(options.brands || []).map((b: string) => <Option key={b} value={b}>{b}</Option>)}
-            </Select>
-          </Form.Item>
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
-              <Button onClick={handleReset}>重置</Button>
-            </Space>
-          </Form.Item>
+      <Card
+        size="small"
+        style={{ marginBottom: 12 }}
+        styles={{ body: { padding: 16 } }}
+      >
+        <Form form={filterForm} onFinish={handleSearch} layout="vertical">
+          <Row gutter={[12, 8]}>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item name="keyword" label="关键字" style={{ marginBottom: 0 }}>
+                <Input placeholder="机房/机柜/品牌/型号/SN/IP/备注" prefix={<SearchOutlined />} allowClear />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item name="device_status" label="设备状态" style={{ marginBottom: 0 }}>
+                <Select placeholder="全部" allowClear onChange={handleDeviceStatusChange}>
+                  <Option value="in_stock">入库</Option>
+                  <Option value="out_stock">出库</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item name="sub_status" label="子状态" style={{ marginBottom: 0 }}>
+                <Select placeholder={filterDeviceStatus ? '全部' : '请先选择设备状态或查看全部'} allowClear>
+                  {subStatusOptions.map(o => (
+                    <Option key={o.value} value={o.value}>{o.label}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item name="datacenter" label="机房" style={{ marginBottom: 0 }}>
+                <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                  {(options.datacenters || []).map((d: string) => <Option key={d} value={d}>{d}</Option>)}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item name="source" label="来源区域" style={{ marginBottom: 0 }}>
+                <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                  {(options.sources || []).map((s: string) => <Option key={s} value={s}>{s}</Option>)}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item name="brand" label="品牌" style={{ marginBottom: 0 }}>
+                <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                  {(options.brands || []).map((b: string) => <Option key={b} value={b}>{b}</Option>)}
+                </Select>
+              </Form.Item>
+            </Col>
+
+            {showAdvanced && (
+              <>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="device_type" label="设备类型" style={{ marginBottom: 0 }}>
+                    <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                      {(options.device_types || []).map((t: string) => <Option key={t} value={t}>{t}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="vendor" label="厂商" style={{ marginBottom: 0 }}>
+                    <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                      {(options.vendors || []).map((v: string) => <Option key={v} value={v}>{v}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="custodian" label="保管员" style={{ marginBottom: 0 }}>
+                    <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                      {(options.custodians || []).map((v: string) => <Option key={v} value={v}>{v}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="model" label="型号" style={{ marginBottom: 0 }}>
+                    <Input placeholder="型号（模糊）" allowClear />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="ip_address" label="IP 地址" style={{ marginBottom: 0 }}>
+                    <Input placeholder="IP（模糊）" allowClear />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="mgmt_ip" label="管理 IP" style={{ marginBottom: 0 }}>
+                    <Input placeholder="远程管理 IP（模糊）" allowClear />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="owner" label="责任人" style={{ marginBottom: 0 }}>
+                    <Input placeholder="责任人（模糊）" allowClear />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="contract_no" label="合同号" style={{ marginBottom: 0 }}>
+                    <Input placeholder="合同号（模糊）" allowClear />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="finance_no" label="财务编号" style={{ marginBottom: 0 }}>
+                    <Input placeholder="财务编号（模糊）" allowClear />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
+          </Row>
+
+          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
+            <Button onClick={handleReset}>重置</Button>
+            <Button
+              type="link"
+              icon={showAdvanced ? <UpOutlined /> : <DownOutlined />}
+              onClick={() => setShowAdvanced(v => !v)}
+            >
+              {showAdvanced ? '收起' : '高级筛选'}
+            </Button>
+          </div>
         </Form>
       </Card>
 
@@ -565,6 +776,9 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
                 <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
                   <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
                 </Popconfirm>
+                {canViewDeviceStatus(record) && (
+                  <Button size="small" onClick={() => openStatusModal(record)}>查看设备状态</Button>
+                )}
                 {getAvailableOps(record).slice(0, 1).map(o => (
                   <Button key={o.key} size="small" type="primary" onClick={() => openOpModal(record, o.key)}>{o.label}</Button>
                 ))}
@@ -593,6 +807,53 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
           pagination={false}
           scroll={{ x: 600 }}
         />
+      </Modal>
+
+      <Modal
+        title="设备状态"
+        open={statusModalOpen}
+        onCancel={closeStatusModal}
+        footer={null}
+        width={isMobile ? '100%' : 1100}
+        style={isMobile ? { top: 0, maxWidth: '100vw', paddingBottom: 0 } : {}}
+        destroyOnClose
+      >
+        {statusDevice && (() => {
+          const dashboardState = resolveDashboardState(statusDevice)
+          const dashboardConfig = dashboardState.config
+          const iframeUrl = dashboardConfig
+            ? buildGrafanaUrl(dashboardConfig, dashboardState.mgmtIp)
+            : null
+
+          return (
+            <>
+              <div style={{ marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <strong>{statusDevice.brand} {statusDevice.model}</strong>
+                  {dashboardConfig && (
+                    <Tag color="blue">{dashboardConfig.label} dashboard</Tag>
+                  )}
+                </div>
+                <div style={{ marginTop: 8, color: '#666' }}>
+                  SN: {statusDevice.serial_number || '-'} | 管理 IP: {normalizeMgmtIp(statusDevice.mgmt_ip) || '-'}
+                </div>
+                <div style={{ marginTop: 4, color: '#666' }}>
+                  {statusDevice.datacenter || '-'} / {statusDevice.cabinet || '-'} / {statusDevice.u_position || '-'}
+                </div>
+              </div>
+
+              {iframeUrl ? (
+                <iframe
+                  src={iframeUrl}
+                  title={`${dashboardConfig?.label || 'Device'} dashboard`}
+                  style={{ width: '100%', height: isMobile ? '60vh' : '70vh', border: 'none' }}
+                />
+              ) : (
+                <div style={{ padding: '32px 0', textAlign: 'center', color: '#666' }}>no data</div>
+              )}
+            </>
+          )
+        })()}
       </Modal>
 
       {/* Operation Modal (rack/dispatch/scrap/unrack) */}

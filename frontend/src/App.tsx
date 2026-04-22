@@ -4,8 +4,8 @@ import type { MenuProps } from 'antd'
 import {
   DashboardOutlined, DatabaseOutlined, AuditOutlined,
   TeamOutlined, SafetyOutlined, UserOutlined, LogoutOutlined,
-  HomeOutlined, SwapOutlined, CheckCircleOutlined,
-  BankOutlined, LayoutOutlined, SettingOutlined,
+  HomeOutlined, CheckCircleOutlined,
+  BankOutlined, LayoutOutlined,
 } from '@ant-design/icons'
 import Dashboard from './pages/Dashboard'
 import Devices from './pages/Devices'
@@ -79,9 +79,6 @@ export default function App() {
     }
     if (isAdmin || permissions.has('role:manage')) {
       items.push({ key: 'roles', icon: <SafetyOutlined />, label: '角色管理' })
-    }
-    if (isAdmin || permissions.has('config:manage')) {
-      items.push({ key: 'system-config', icon: <SettingOutlined />, label: '系统配置' })
     }
     return items
   }, [isAdmin, permissions])
@@ -163,7 +160,7 @@ export default function App() {
         }}>
           <span style={{ fontSize: 16, fontWeight: 600, color: token.colorText }}>
             {isMobile && <span style={{ marginRight: 8, color: token.colorPrimary, fontWeight: 700 }}>DC</span>}
-            {getPageTitle(page, menuItems)}
+            {getPageTitle(page)}
           </span>
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -189,7 +186,7 @@ export default function App() {
           display: 'flex', justifyContent: 'space-around',
           padding: '6px 0', zIndex: 1000,
         }}>
-          {getMobileMenuItems(page).map(item => (
+          {getMobileMenuItems().map(item => (
             <div
               key={item.key}
               onClick={() => setPage(item.key)}
@@ -209,7 +206,7 @@ export default function App() {
   )
 }
 
-function getPageTitle(page: string, menuItems: MenuProps['items']): string {
+function getPageTitle(page: string): string {
   const titles: Record<string, string> = {
     'dashboard': '总览大屏',
     'devices': '设备管理',
@@ -219,12 +216,11 @@ function getPageTitle(page: string, menuItems: MenuProps['items']): string {
     'datacenter-layout': '机房布局',
     'users': '用户管理',
     'roles': '角色管理',
-    'system-config': '系统配置',
   }
   return titles[page] || '数据中心管理'
 }
 
-function getMobileMenuItems(page: string) {
+function getMobileMenuItems() {
   return [
     { key: 'dashboard', icon: <DashboardOutlined />, label: '总览' },
     { key: 'devices', icon: <DatabaseOutlined />, label: '设备' },

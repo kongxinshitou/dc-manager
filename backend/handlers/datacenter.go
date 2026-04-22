@@ -226,7 +226,7 @@ func GetCabinetDevices(c *gin.Context) {
 	}
 
 	var devices []models.Device
-	database.DB.Where("cabinet_id = ?", id).Order("start_u").Find(&devices)
+	database.DB.Where("cabinet_id = ? AND sub_status = ?", id, "racked").Order("start_u").Find(&devices)
 
 	c.JSON(http.StatusOK, gin.H{
 		"cabinet": cabinet,
@@ -253,9 +253,9 @@ func GetDatacenterLayout(c *gin.Context) {
 	var cabinets []models.Cabinet
 	database.DB.Where("datacenter_id = ?", id).Order("id").Find(&cabinets)
 
-	// Get devices for all cabinets in this datacenter
+	// Get devices for all cabinets in this datacenter (only racked devices occupy U positions)
 	var devices []models.Device
-	database.DB.Where("datacenter_id = ?", id).Find(&devices)
+	database.DB.Where("datacenter_id = ? AND sub_status = ?", id, "racked").Find(&devices)
 
 	// Build device map by cabinet_id
 	devicesByCabinet := make(map[uint][]map[string]any)

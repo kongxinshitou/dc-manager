@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Select, Card, Row, Col, Drawer, Grid, Spin, Modal, Form, Input, Button, message, Tag } from 'antd'
+import { Select, Card, Row, Col, Drawer, Grid, Spin, Modal, Form, InputNumber, Button, message, Tag } from 'antd'
 import {
   getDatacenters, getDatacenterLayout, getCabinetDevices,
   getDevices, submitApproval,
@@ -386,12 +386,12 @@ export default function DatacenterLayout() {
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item label="起始U位" name="start_u" rules={[{ required: true, message: '请输入U位' }]}>
-                    <Input type="number" min={1} max={selectedCabinet?.height || 47} />
+                    <InputNumber min={1} max={selectedCabinet?.height || 47} style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
                   <Form.Item label="占用U数" name="u_count" rules={[{ required: true, message: '请输入占用U数' }]} initialValue={1}>
-                    <Input type="number" min={1} max={10} />
+                    <InputNumber min={1} max={10} style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
               </Row>

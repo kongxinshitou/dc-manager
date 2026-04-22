@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -178,7 +179,15 @@ func applyOperationFields(device *models.Device, operation string, details map[s
 		setDetailString(device, details, "scrap_remark", func(v string) { device.ScrapRemark = v })
 
 	case OpUnrack:
-		// Keep rack fields for reference, set storage location for physical move
+		// 物理下架：清空机柜/U位关联，业务归属字段（vip/business地址）保留供后续再上架参考
+		device.Datacenter = ""
+		device.Cabinet = ""
+		device.UPosition = ""
+		device.StartU = nil
+		device.EndU = nil
+		device.UCount = nil
+		device.DatacenterID = nil
+		device.CabinetID = nil
 		setDetailString(device, details, "storage_location", func(v string) { device.StorageLocation = v })
 		setDetailString(device, details, "custodian", func(v string) { device.Custodian = v })
 
@@ -231,6 +240,10 @@ func setDetailInt(_ *models.Device, details map[string]any, key string, setter f
 			setter(int(n))
 		case int:
 			setter(n)
+		case string:
+			if i, err := strconv.Atoi(n); err == nil {
+				setter(i)
+			}
 		}
 	}
 }
@@ -242,6 +255,10 @@ func setDetailUint(_ *models.Device, details map[string]any, key string, setter 
 			setter(uint(n))
 		case int:
 			setter(uint(n))
+		case string:
+			if i, err := strconv.Atoi(n); err == nil && i >= 0 {
+				setter(uint(i))
+			}
 		}
 	}
 }
