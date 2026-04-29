@@ -7,7 +7,7 @@ import {
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined,
   DownloadOutlined, UploadOutlined, MoreOutlined,
-  DownOutlined, UpOutlined,
+  DownOutlined, UpOutlined, FilterOutlined, EyeOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { ColumnsType, TableProps } from 'antd/es/table'
@@ -61,6 +61,7 @@ const warrantyLabel: Record<string, string> = {
 interface DevicesProps {
   focusDeviceId?: number | null
   onFocusHandled?: () => void
+  onViewDetail?: (id: number) => void
 }
 
 interface DashboardConfig {
@@ -144,7 +145,7 @@ const buildGrafanaUrl = (config: DashboardConfig, mgmtIp: string) => {
   return `${GRAFANA_BASE_URL}/d/${config.uid}/${config.slug}?kiosk&${params.toString()}`
 }
 
-export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps) {
+export default function Devices({ focusDeviceId, onFocusHandled, onViewDetail }: DevicesProps) {
   const [data, setData] = useState<DeviceWithWarranty[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -169,6 +170,8 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
 
   // Advanced filter toggle
   const [showAdvanced, setShowAdvanced] = useState(false)
+  // Mobile filter panel toggle (only used when isMobile)
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const [filterForm] = Form.useForm()
   const filterDeviceStatus = Form.useWatch('device_status', filterForm)
   const subStatusOptions = filterDeviceStatus
@@ -475,6 +478,7 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
         const ops = getAvailableOps(record)
         return (
           <Space size={4} wrap>
+            <Tooltip title="详情"><Button size="small" icon={<EyeOutlined />} onClick={() => onViewDetail?.(record.id)} /></Tooltip>
             <Tooltip title="编辑"><Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} /></Tooltip>
             <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
               <Tooltip title="删除"><Button size="small" danger icon={<DeleteOutlined />} /></Tooltip>
@@ -593,6 +597,9 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
     }
   }
 
+  // 手机端：除关键字外的筛选默认折叠，桌面端：全部展开
+  const showSecondaryFilters = !isMobile || mobileFilterOpen
+
   return (
     <div style={{ padding: 16 }}>
       <Card
@@ -607,46 +614,50 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
                 <Input placeholder="机房/机柜/品牌/型号/SN/IP/备注" prefix={<SearchOutlined />} allowClear />
               </Form.Item>
             </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item name="device_status" label="设备状态" style={{ marginBottom: 0 }}>
-                <Select placeholder="全部" allowClear onChange={handleDeviceStatusChange}>
-                  <Option value="in_stock">入库</Option>
-                  <Option value="out_stock">出库</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item name="sub_status" label="子状态" style={{ marginBottom: 0 }}>
-                <Select placeholder={filterDeviceStatus ? '全部' : '请先选择设备状态或查看全部'} allowClear>
-                  {subStatusOptions.map(o => (
-                    <Option key={o.value} value={o.value}>{o.label}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item name="datacenter" label="机房" style={{ marginBottom: 0 }}>
-                <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
-                  {(options.datacenters || []).map((d: string) => <Option key={d} value={d}>{d}</Option>)}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item name="source" label="来源区域" style={{ marginBottom: 0 }}>
-                <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
-                  {(options.sources || []).map((s: string) => <Option key={s} value={s}>{s}</Option>)}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item name="brand" label="品牌" style={{ marginBottom: 0 }}>
-                <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
-                  {(options.brands || []).map((b: string) => <Option key={b} value={b}>{b}</Option>)}
-                </Select>
-              </Form.Item>
-            </Col>
+            {showSecondaryFilters && (
+              <>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="device_status" label="设备状态" style={{ marginBottom: 0 }}>
+                    <Select placeholder="全部" allowClear onChange={handleDeviceStatusChange}>
+                      <Option value="in_stock">入库</Option>
+                      <Option value="out_stock">出库</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="sub_status" label="子状态" style={{ marginBottom: 0 }}>
+                    <Select placeholder={filterDeviceStatus ? '全部' : '请先选择设备状态或查看全部'} allowClear>
+                      {subStatusOptions.map(o => (
+                        <Option key={o.value} value={o.value}>{o.label}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="datacenter" label="机房" style={{ marginBottom: 0 }}>
+                    <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                      {(options.datacenters || []).map((d: string) => <Option key={d} value={d}>{d}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="source" label="来源区域" style={{ marginBottom: 0 }}>
+                    <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                      {(options.sources || []).map((s: string) => <Option key={s} value={s}>{s}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                  <Form.Item name="brand" label="品牌" style={{ marginBottom: 0 }}>
+                    <Select placeholder="全部" allowClear showSearch optionFilterProp="children">
+                      {(options.brands || []).map((b: string) => <Option key={b} value={b}>{b}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </>
+            )}
 
-            {showAdvanced && (
+            {showSecondaryFilters && showAdvanced && (
               <>
                 <Col xs={24} sm={12} md={8} lg={6}>
                   <Form.Item name="device_type" label="设备类型" style={{ marginBottom: 0 }}>
@@ -703,16 +714,27 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
             )}
           </Row>
 
-          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
             <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
             <Button onClick={handleReset}>重置</Button>
-            <Button
-              type="link"
-              icon={showAdvanced ? <UpOutlined /> : <DownOutlined />}
-              onClick={() => setShowAdvanced(v => !v)}
-            >
-              {showAdvanced ? '收起' : '高级筛选'}
-            </Button>
+            {isMobile && (
+              <Button
+                type="link"
+                icon={<FilterOutlined />}
+                onClick={() => setMobileFilterOpen(v => !v)}
+              >
+                {mobileFilterOpen ? '收起' : '筛选'}
+              </Button>
+            )}
+            {showSecondaryFilters && (
+              <Button
+                type="link"
+                icon={showAdvanced ? <UpOutlined /> : <DownOutlined />}
+                onClick={() => setShowAdvanced(v => !v)}
+              >
+                {showAdvanced ? '收起高级' : '高级筛选'}
+              </Button>
+            )}
           </div>
         </Form>
       </Card>
@@ -729,17 +751,19 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
             </Popconfirm>
           )}
         </Space>
-        <Space>
-          <Button icon={<DownloadOutlined />} onClick={handleExport}>导出Excel</Button>
-          <Upload
-            accept=".xlsx,.xls"
-            showUploadList={false}
-            beforeUpload={handleImportFile}
-          >
-            <Button icon={<UploadOutlined />} loading={importLoading}>导入Excel</Button>
-          </Upload>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增设备</Button>
-        </Space>
+        {!isMobile && (
+          <Space>
+            <Button icon={<DownloadOutlined />} onClick={handleExport}>导出Excel</Button>
+            <Upload
+              accept=".xlsx,.xls"
+              showUploadList={false}
+              beforeUpload={handleImportFile}
+            >
+              <Button icon={<UploadOutlined />} loading={importLoading}>导入Excel</Button>
+            </Upload>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增设备</Button>
+          </Space>
+        )}
       </div>
 
       <ResponsiveTable
@@ -758,34 +782,35 @@ export default function Devices({ focusDeviceId, onFocusHandled }: DevicesProps)
           total, pageSize: query.page_size, current: query.page, showSizeChanger: true,
           pageSizeOptions: ['20', '50', '100'],
         }}
-        mobileCardRender={(record) => (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <strong>{record.brand} {record.model}</strong>
-              <Tag color={record.device_status === 'in_stock' ? 'blue' : 'orange'}>
-                {deviceStatusLabel[record.device_status]}-{subStatusLabel[record.sub_status]}
-              </Tag>
+        mobileCardRender={(record) => {
+          const titleText = [record.brand, record.model].filter(Boolean).join(' ').trim()
+          const locationText = [record.datacenter, record.cabinet, record.u_position]
+            .map(s => (s == null ? '' : String(s).trim()))
+            .filter(Boolean)
+            .join(' / ')
+          return (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                <strong style={{ flex: 1, wordBreak: 'break-word', color: titleText ? undefined : '#bbb', fontWeight: titleText ? 600 : 400 }}>
+                  {titleText || '未填写品牌/型号'}
+                </strong>
+                <Tag color={record.device_status === 'in_stock' ? 'blue' : 'orange'} style={{ marginRight: 0 }}>
+                  {deviceStatusLabel[record.device_status] || '-'}-{subStatusLabel[record.sub_status] || '-'}
+                </Tag>
+              </div>
+              <div style={{ fontSize: 12, color: '#666', lineHeight: 1.8 }}>
+                <div>位置：{locationText || '—'}</div>
+                {record.ip_address && <div>IP: {record.ip_address}</div>}
+                {record.serial_number && <div>SN: {record.serial_number}</div>}
+              </div>
+              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button size="small" type="primary" icon={<EyeOutlined />} onClick={() => onViewDetail?.(record.id)}>
+                  查看详情
+                </Button>
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: '#666', lineHeight: 1.8 }}>
-              <div>{record.datacenter} / {record.cabinet} / {record.u_position}</div>
-              <div>IP: {record.ip_address} | SN: {record.serial_number}</div>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <Space size={4} wrap>
-                <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
-                <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
-                  <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
-                </Popconfirm>
-                {canViewDeviceStatus(record) && (
-                  <Button size="small" onClick={() => openStatusModal(record)}>查看设备状态</Button>
-                )}
-                {getAvailableOps(record).slice(0, 1).map(o => (
-                  <Button key={o.key} size="small" type="primary" onClick={() => openOpModal(record, o.key)}>{o.label}</Button>
-                ))}
-              </Space>
-            </div>
-          </div>
-        )}
+          )
+        }}
       />
 
       {/* Import Preview Modal */}

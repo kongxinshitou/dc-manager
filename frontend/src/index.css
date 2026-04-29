@@ -20,6 +20,12 @@ body {
     min-height: 36px;
   }
 
+  /* Larger touch targets for table action links / small buttons */
+  .ant-btn-sm {
+    min-height: 32px;
+    padding: 0 10px;
+  }
+
   /* Inline forms should stack on mobile */
   .ant-form-inline .ant-form-item {
     margin-right: 0;
@@ -33,9 +39,42 @@ body {
     padding: 12px;
   }
 
+  /* Tighter card meta padding for mobile card lists */
+  .ant-card-small > .ant-card-body {
+    padding: 10px;
+  }
+
   /* Descriptions compact on mobile */
   .ant-descriptions-item-label,
   .ant-descriptions-item-content {
     padding: 8px 12px !important;
+  }
+
+  /* Drawer "more" menu items: larger tap targets */
+  .ant-drawer-body .ant-menu-item {
+    height: 44px;
+    line-height: 44px;
+  }
+
+  /* Avoid iOS auto-zoom on form inputs (font-size < 16px triggers zoom) */
+  .ant-input,
+  .ant-input-number-input,
+  .ant-select-selection-search-input,
+  .ant-picker-input > input {
+    font-size: 16px;
+  }
+
+  /* Modal that goes full-width on mobile: remove rounded corners + side margins */
+  .ant-modal {
+    margin: 0;
+    padding-bottom: 0;
+    max-width: 100vw;
+    top: 0;
+  }
+
+  /* Allow tag wrapping in tight spaces */
+  .ant-tag {
+    margin-right: 4px;
+    margin-bottom: 2px;
   }
 }

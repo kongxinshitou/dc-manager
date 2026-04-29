@@ -13,6 +13,7 @@ import Inspections from './pages/Inspections'
 import Users from './pages/Users'
 import Roles from './pages/Roles'
 import InspectionDetail from './pages/InspectionDetail'
+import DeviceDetail from './pages/DeviceDetail'
 import DatacenterManage from './pages/DatacenterManage'
 import DatacenterLayout from './pages/DatacenterLayout'
 import Approvals from './pages/Approvals'
@@ -30,6 +31,7 @@ export default function App() {
   const [page, setPage] = useState('dashboard')
   const [focusDeviceId, setFocusDeviceId] = useState<number | null>(null)
   const [selectedInspectionId, setSelectedInspectionId] = useState<number | null>(null)
+  const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null)
   const { token } = theme.useToken()
   const screens = useBreakpoint()
   const isMobile = !screens.md
@@ -56,6 +58,11 @@ export default function App() {
   const handleViewDetail = (id: number) => {
     setSelectedInspectionId(id)
     setPage('inspection-detail')
+  }
+
+  const handleViewDeviceDetail = (id: number) => {
+    setSelectedDeviceId(id)
+    setPage('device-detail')
   }
 
   const menuItems = useMemo(() => {
@@ -93,9 +100,16 @@ export default function App() {
         <Devices
           focusDeviceId={focusDeviceId}
           onFocusHandled={() => setFocusDeviceId(null)}
+          onViewDetail={handleViewDeviceDetail}
         />
       )
     }
+    if (page === 'device-detail' && selectedDeviceId) return (
+      <DeviceDetail
+        id={selectedDeviceId}
+        onBack={() => setPage('devices')}
+      />
+    )
     if (page === 'inspections') return (
       <Inspections
         onGoToDevice={handleGoToDevice}
@@ -185,21 +199,25 @@ export default function App() {
           borderTop: `1px solid ${token.colorBorderSecondary}`,
           display: 'flex', justifyContent: 'space-around',
           padding: '6px 0', zIndex: 1000,
+          paddingBottom: 'calc(6px + env(safe-area-inset-bottom))',
         }}>
-          {getMobileMenuItems().map(item => (
-            <div
-              key={item.key}
-              onClick={() => setPage(item.key)}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                color: page === item.key || (page === 'devices' && item.key === 'devices') ? token.colorPrimary : token.colorTextSecondary,
-                fontSize: 11, cursor: 'pointer', minWidth: 56, padding: '4px 0',
-              }}
-            >
-              <span style={{ fontSize: 18 }}>{item.icon}</span>
-              <span style={{ marginTop: 2 }}>{item.label}</span>
-            </div>
-          ))}
+          {getMobileMenuItems().map(item => {
+            const active = page === item.key
+            return (
+              <div
+                key={item.key}
+                onClick={() => setPage(item.key)}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  color: active ? token.colorPrimary : token.colorTextSecondary,
+                  fontSize: 11, cursor: 'pointer', minWidth: 56, padding: '4px 0',
+                }}
+              >
+                <span style={{ fontSize: 18 }}>{item.icon}</span>
+                <span style={{ marginTop: 2 }}>{item.label}</span>
+              </div>
+            )
+          })}
         </div>
       )}
     </Layout>
@@ -210,6 +228,7 @@ function getPageTitle(page: string): string {
   const titles: Record<string, string> = {
     'dashboard': '总览大屏',
     'devices': '设备管理',
+    'device-detail': '设备详情',
     'inspections': '巡检记录',
     'approvals': '审批管理',
     'datacenter-manage': '机房配置',
@@ -225,6 +244,5 @@ function getMobileMenuItems() {
     { key: 'dashboard', icon: <DashboardOutlined />, label: '总览' },
     { key: 'devices', icon: <DatabaseOutlined />, label: '设备' },
     { key: 'inspections', icon: <AuditOutlined />, label: '巡检' },
-    { key: 'datacenter-layout', icon: <BankOutlined />, label: '机房' },
   ]
 }

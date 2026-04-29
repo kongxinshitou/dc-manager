@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Card, Button, Modal, Form, Input, Checkbox, Tag, message, Popconfirm, Space, Typography, Row, Col } from 'antd'
+import { Card, Button, Modal, Form, Input, Checkbox, Tag, message, Popconfirm, Space, Typography, Row, Col, Grid } from 'antd'
 import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import {
   getRoles, createRole, updateRole, deleteRole, getPermissionInfo,
@@ -14,6 +14,8 @@ export default function Roles() {
   const [editingRole, setEditingRole] = useState<RoleInfo | null>(null)
   const [selectedPerms, setSelectedPerms] = useState<string[]>([])
   const [form] = Form.useForm()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
 
   const loadRoles = useCallback(async () => {
     setLoading(true)
@@ -159,7 +161,8 @@ export default function Roles() {
         onCancel={() => setModalOpen(false)}
         okText={editingRole?.is_system ? '关闭' : '保存'}
         cancelButtonProps={editingRole?.is_system ? { style: { display: 'none' } } : {}}
-        width={600}
+        width={isMobile ? '100%' : 600}
+        style={isMobile ? { top: 0, maxWidth: '100vw', paddingBottom: 0 } : {}}
         destroyOnClose
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>

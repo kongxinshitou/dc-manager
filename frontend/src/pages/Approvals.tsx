@@ -1,13 +1,16 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
-  Table, Tabs, Tag, Space, Button, Drawer, Input, message, Popconfirm, Card, Grid,
+  Tabs, Tag, Space, Button, Drawer, Input, message, Popconfirm, Card, Grid, Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
+import ResponsiveTable from '../components/ResponsiveTable'
 import {
   getApprovals, getApproval, approveApproval, rejectApproval, executeApproval, cancelApproval,
 } from '../api'
 import type { Approval, ApprovalQuery } from '../api'
+
+const { Text } = Typography
 
 const statusConfig: Record<string, { color: string; label: string }> = {
   pending: { color: 'processing', label: '待审批' },
@@ -137,7 +140,7 @@ export default function Approvals() {
         ]} />
       </Card>
 
-      <Table
+      <ResponsiveTable<Approval>
         dataSource={data}
         columns={columns}
         rowKey="id"
@@ -147,6 +150,36 @@ export default function Approvals() {
         pagination={{
           total, pageSize: 20, current: page,
           onChange: p => setPage(p),
+        }}
+        mobileCardRender={(record) => {
+          const cfg = statusConfig[record.status] || { color: 'default', label: record.status }
+          return (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Space size={4} wrap>
+                  <Tag color={cfg.color}>{cfg.label}</Tag>
+                  <Tag>{opTypeLabel[record.operation_type] || record.operation_type}</Tag>
+                </Space>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {dayjs(record.created_at).format('MM-DD HH:mm')}
+                </Text>
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 4, wordBreak: 'break-all' }}>
+                <Text type="secondary">单号：</Text>{record.approval_no}
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 4 }}>
+                <Text type="secondary">申请人：</Text>{record.applicant_name}
+                <Text type="secondary" style={{ marginLeft: 12 }}>审批人：</Text>{record.approver_name || '-'}
+              </div>
+              <Space size={4} wrap style={{ marginTop: 8 }}>
+                <Button size="small" onClick={() => openDetail(record.id)}>详情</Button>
+                {record.status === 'pending' && <Button size="small" type="primary" onClick={() => handleApprove(record.id)}>批准</Button>}
+                {record.status === 'pending' && <Button size="small" danger onClick={() => handleReject(record.id)}>驳回</Button>}
+                {record.status === 'approved' && <Button size="small" type="primary" onClick={() => handleExecute(record.id)}>执行</Button>}
+                {record.status === 'pending' && <Button size="small" onClick={() => handleCancel(record.id)}>取消</Button>}
+              </Space>
+            </div>
+          )
         }}
       />
 

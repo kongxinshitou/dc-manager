@@ -58,7 +58,7 @@ export default function InspectionDetail({ id, onBack, onGoToDevice }: Inspectio
   if (!inspection) return <div style={{ padding: 40, textAlign: 'center' }}>未找到巡检记录</div>
 
   return (
-    <div style={{ padding: 20, maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ padding: 20, maxWidth: 1400, margin: '0 auto' }}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={onBack}>返回列表</Button>
         <Typography.Title level={5} style={{ margin: 0 }}>
@@ -67,7 +67,7 @@ export default function InspectionDetail({ id, onBack, onGoToDevice }: Inspectio
       </div>
 
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered>
+        <Descriptions column={{ xs: 1, sm: 2, md: 3, lg: 4 }} size="small" bordered>
           <Descriptions.Item label="机房">{inspection.datacenter || '-'}</Descriptions.Item>
           <Descriptions.Item label="机柜">{inspection.cabinet || '-'}</Descriptions.Item>
           <Descriptions.Item label="U位">

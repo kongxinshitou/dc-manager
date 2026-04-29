@@ -14,14 +14,19 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// 401 响应拦截器
+// 401 响应拦截器：避免无 token 状态下被并发 401 触发刷新风暴
+let isRedirecting = false
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isRedirecting) {
+      const hadToken = !!localStorage.getItem('token')
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.reload()
+      if (hadToken) {
+        isRedirecting = true
+        window.location.reload()
+      }
     }
     return Promise.reject(error)
   }

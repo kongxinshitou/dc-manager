@@ -3,10 +3,11 @@ import {
   Table, Button, Input, Select, Space, Tag, Modal, Form,
   DatePicker, message, Popconfirm, Card, Tooltip, Row, Col, Typography, Upload, Grid
 } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, LinkOutlined, UploadOutlined, EyeOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, LinkOutlined, UploadOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import type { SorterResult } from 'antd/es/table/interface'
+import ResponsiveTable from '../components/ResponsiveTable'
 import {
   getInspections, createInspection, updateInspection, deleteInspection,
   getDeviceOptions, getDeviceCabinets, getDeviceByLocation, batchDeleteInspections,
@@ -39,6 +40,8 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
   const [form] = Form.useForm()
   const [searchForm] = Form.useForm()
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  // Mobile filter panel toggle (only used when isMobile)
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
   // Import state
   const [importLoading, setImportLoading] = useState(false)
@@ -314,29 +317,42 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
   return (
     <div style={{ padding: 16 }}>
       <Card size="small" style={{ marginBottom: 12 }}>
-        <Form layout="inline" form={searchForm} onFinish={handleSearch}>
-          <Form.Item name="keyword"><Input placeholder="全局搜索" prefix={<SearchOutlined />} allowClear style={{ width: 150 }} /></Form.Item>
-          <Form.Item name="datacenter"><Input placeholder="机房" allowClear style={{ width: 120 }} /></Form.Item>
-          <Form.Item name="inspector"><Input placeholder="巡检人" allowClear style={{ width: 100 }} /></Form.Item>
-          <Form.Item name="severity">
-            <Select placeholder="等级" allowClear style={{ width: 90 }}>
-              <Option value="严重">严重</Option>
-              <Option value="一般">一般</Option>
-              <Option value="轻微">轻微</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="status">
-            <Select placeholder="状态" allowClear style={{ width: 100 }}>
-              <Option value="待处理">待处理</Option>
-              <Option value="处理中">处理中</Option>
-              <Option value="已解决">已解决</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="time_range"><RangePicker style={{ width: 220 }} /></Form.Item>
+        <Form layout={isMobile ? 'vertical' : 'inline'} form={searchForm} onFinish={handleSearch}>
+          <Form.Item name="keyword"><Input placeholder="全局搜索" prefix={<SearchOutlined />} allowClear style={{ width: isMobile ? '100%' : 150 }} /></Form.Item>
+          {(!isMobile || mobileFilterOpen) && (
+            <>
+              <Form.Item name="datacenter"><Input placeholder="机房" allowClear style={{ width: isMobile ? '100%' : 120 }} /></Form.Item>
+              <Form.Item name="inspector"><Input placeholder="巡检人" allowClear style={{ width: isMobile ? '100%' : 100 }} /></Form.Item>
+              <Form.Item name="severity">
+                <Select placeholder="等级" allowClear style={{ width: isMobile ? '100%' : 90 }}>
+                  <Option value="严重">严重</Option>
+                  <Option value="一般">一般</Option>
+                  <Option value="轻微">轻微</Option>
+                </Select>
+              </Form.Item>
+              <Form.Item name="status">
+                <Select placeholder="状态" allowClear style={{ width: isMobile ? '100%' : 100 }}>
+                  <Option value="待处理">待处理</Option>
+                  <Option value="处理中">处理中</Option>
+                  <Option value="已解决">已解决</Option>
+                </Select>
+              </Form.Item>
+              <Form.Item name="time_range"><RangePicker style={{ width: isMobile ? '100%' : 220 }} /></Form.Item>
+            </>
+          )}
           <Form.Item>
-            <Space>
+            <Space wrap>
               <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>查询</Button>
               <Button onClick={handleReset}>重置</Button>
+              {isMobile && (
+                <Button
+                  type="link"
+                  icon={<FilterOutlined />}
+                  onClick={() => setMobileFilterOpen(v => !v)}
+                >
+                  {mobileFilterOpen ? '收起' : '筛选'}
+                </Button>
+              )}
             </Space>
           </Form.Item>
         </Form>
@@ -356,13 +372,21 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
         </Space>
         <Space>
           <Upload accept=".xlsx,.xls" showUploadList={false} beforeUpload={handleImportFile}>
-            <Button icon={<UploadOutlined />} loading={importLoading}>导入Excel</Button>
+            {isMobile ? (
+              <Tooltip title="导入Excel">
+                <Button icon={<UploadOutlined />} loading={importLoading} />
+              </Tooltip>
+            ) : (
+              <Button icon={<UploadOutlined />} loading={importLoading}>导入Excel</Button>
+            )}
           </Upload>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增巡检记录</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            {isMobile ? '新增' : '新增巡检记录'}
+          </Button>
         </Space>
       </div>
 
-      <Table
+      <ResponsiveTable<Inspection>
         dataSource={data}
         columns={columns}
         rowKey="id"
@@ -381,6 +405,63 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
             const q = { ...query, page, page_size: pageSize }
             setQuery(q); fetchData(q)
           },
+        }}
+        mobileCardRender={(record) => {
+          const uText = record.start_u != null && record.end_u != null
+            ? (record.start_u === record.end_u ? `${record.start_u}U` : `${record.start_u}-${record.end_u}U`)
+            : (record.u_position || '-')
+          return (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Space size={4} wrap>
+                  <Tag color={severityColor[record.severity]}>{record.severity}</Tag>
+                  <Tag color={statusColor[record.status]}>{record.status}</Tag>
+                </Space>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {dayjs(record.found_at).format('MM-DD HH:mm')}
+                </Text>
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 4 }}>
+                <Text type="secondary">位置：</Text>
+                {record.datacenter} / {record.cabinet || '-'} / {uText}
+              </div>
+              {record.device && (
+                <div style={{ fontSize: 13, marginBottom: 4 }}>
+                  <Text type="secondary">设备：</Text>
+                  {onGoToDevice && record.device_id ? (
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<LinkOutlined />}
+                      style={{ padding: 0, height: 'auto', fontSize: 13 }}
+                      onClick={() => onGoToDevice(record.device_id!)}
+                    >
+                      {record.device.brand} {record.device.model}
+                    </Button>
+                  ) : (
+                    <span>{record.device.brand} {record.device.model}</span>
+                  )}
+                </div>
+              )}
+              <div style={{ fontSize: 13, marginBottom: 4 }}>
+                <Text type="secondary">巡检人：</Text>{record.inspector || '-'}
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 8, wordBreak: 'break-word' }}>
+                <Text type="secondary">问题：</Text>{record.issue}
+              </div>
+              <Space size={4} wrap>
+                {onViewDetail && (
+                  <Button size="small" icon={<EyeOutlined />} onClick={() => onViewDetail(record.id)}>详情</Button>
+                )}
+                <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
+                {(!permissions || permissions.has('inspection:delete')) && (
+                  <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
+                    <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                  </Popconfirm>
+                )}
+              </Space>
+            </div>
+          )
         }}
       />
 

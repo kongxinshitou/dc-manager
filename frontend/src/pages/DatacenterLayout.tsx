@@ -203,14 +203,14 @@ export default function DatacenterLayout() {
   return (
     <div style={{ padding: 16 }}>
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Row gutter={16} align="middle">
-          <Col>
+        <Row gutter={[12, 12]} align="middle">
+          <Col xs={24} sm={24} md={8}>
             <span style={{ marginRight: 8 }}>选择机房:</span>
             <Select
               value={selectedDcId || undefined}
               onChange={setSelectedDcId}
               placeholder="请选择机房"
-              style={{ width: 200 }}
+              style={{ width: isMobile ? 'calc(100% - 80px)' : 200 }}
               allowClear
             >
               {datacenters.map(dc => <Option key={dc.id} value={dc.id}>{dc.name}</Option>)}
@@ -218,9 +218,9 @@ export default function DatacenterLayout() {
           </Col>
           {layout && (
             <>
-              <Col><Card.Grid style={{ padding: '8px 16px', border: 'none' }}><div style={{ fontSize: 12, color: '#999' }}>机柜总数</div><div style={{ fontSize: 20, fontWeight: 600 }}>{totalCabinets}</div></Card.Grid></Col>
-              <Col><Card.Grid style={{ padding: '8px 16px', border: 'none' }}><div style={{ fontSize: 12, color: '#999' }}>已用机柜</div><div style={{ fontSize: 20, fontWeight: 600 }}>{usedCabinets}</div></Card.Grid></Col>
-              <Col><Card.Grid style={{ padding: '8px 16px', border: 'none' }}><div style={{ fontSize: 12, color: '#999' }}>U位使用率</div><div style={{ fontSize: 20, fontWeight: 600 }}>{usagePercent}%</div></Card.Grid></Col>
+              <Col xs={8} sm={8} md={5}><div style={{ padding: isMobile ? '4px 8px' : '8px 16px' }}><div style={{ fontSize: 12, color: '#999' }}>机柜总数</div><div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 600 }}>{totalCabinets}</div></div></Col>
+              <Col xs={8} sm={8} md={5}><div style={{ padding: isMobile ? '4px 8px' : '8px 16px' }}><div style={{ fontSize: 12, color: '#999' }}>已用机柜</div><div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 600 }}>{usedCabinets}</div></div></Col>
+              <Col xs={8} sm={8} md={6}><div style={{ padding: isMobile ? '4px 8px' : '8px 16px' }}><div style={{ fontSize: 12, color: '#999' }}>U位使用率</div><div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 600 }}>{usagePercent}%</div></div></Col>
             </>
           )}
         </Row>
@@ -235,7 +235,7 @@ export default function DatacenterLayout() {
           ) : (
           <>
           {/* Legend */}
-          <div style={{ marginBottom: 12, display: 'flex', gap: 16, fontSize: 12 }}>
+          <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: isMobile ? 8 : 16, fontSize: 12 }}>
             <span><span style={{ display: 'inline-block', width: 12, height: 12, background: CABINET_COLORS.low, borderRadius: 2, marginRight: 4 }} />空闲(&lt;40%)</span>
             <span><span style={{ display: 'inline-block', width: 12, height: 12, background: CABINET_COLORS.medium, borderRadius: 2, marginRight: 4 }} />中等(40-70%)</span>
             <span><span style={{ display: 'inline-block', width: 12, height: 12, background: CABINET_COLORS.high, borderRadius: 2, marginRight: 4 }} />较高(70-90%)</span>

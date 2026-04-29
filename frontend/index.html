@@ -3,11 +3,47 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1677ff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="数据中心管理" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>数据中心管理</title>
   </head>
   <body>
     <div id="root"></div>
+    <div id="boot-error" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#fff1f0;color:#a8071a;border-bottom:1px solid #ffa39e;padding:12px 14px;font:12px/1.6 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;white-space:pre-wrap;word-break:break-all;max-height:60vh;overflow:auto"></div>
+    <script>
+      (function () {
+        var box = document.getElementById('boot-error');
+        var lines = [];
+        function render(line) {
+          lines.push(line);
+          box.textContent = '页面加载异常，请把下方信息截图反馈：\n\n' + lines.join('\n\n---\n\n')
+            + '\n\nUA: ' + navigator.userAgent + '\nURL: ' + location.href;
+          box.style.display = 'block';
+        }
+        window.addEventListener('error', function (e) {
+          if (e.target && e.target !== window && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+            render('资源加载失败: ' + (e.target.src || e.target.href));
+            return;
+          }
+          render('JS 错误: ' + (e.message || e) + (e.filename ? '\n@ ' + e.filename + ':' + e.lineno + ':' + e.colno : '') + (e.error && e.error.stack ? '\n' + e.error.stack : ''));
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e.reason;
+          render('Promise 未捕获: ' + (r && r.stack ? r.stack : (r && r.message ? r.message : String(r))));
+        });
+        // React 挂载成功后自动隐藏（轮询 5 秒；挂上即收）
+        var ticks = 0;
+        var t = setInterval(function () {
+          var root = document.getElementById('root');
+          if (root && root.firstChild) { box.style.display = 'none'; clearInterval(t); return; }
+          if (++ticks > 25) clearInterval(t);
+        }, 200);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Table, Tag, Typography, Spin, Badge, Statistic } from 'antd'
-import { AlertOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DatabaseOutlined } from '@ant-design/icons'
+import { Card, Row, Col, Tag, Typography, Spin, Badge, Statistic, Space, Alert, Button } from 'antd'
+import { AlertOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DatabaseOutlined, ReloadOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import dayjs from 'dayjs'
+import ResponsiveTable from '../components/ResponsiveTable'
 import { getDashboard } from '../api'
 
 const { Title } = Typography
@@ -23,24 +24,27 @@ const statusColor: Record<string, string> = {
 export default function Dashboard() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [issuesPage, setIssuesPage] = useState(1)
   const [issuesPageSize, setIssuesPageSize] = useState(20)
 
   const fetchData = (page: number, pageSize: number) => {
     setLoading(true)
+    setError(null)
     getDashboard({ issues_page: page, issues_page_size: pageSize })
       .then(d => { setData(d); setLoading(false) })
-      .catch(() => setLoading(false))
+      .catch((err: any) => {
+        setError(err?.response?.data?.error || err?.message || '加载失败，请检查网络或后端服务')
+        setLoading(false)
+      })
   }
 
   useEffect(() => {
     fetchData(issuesPage, issuesPageSize)
   }, [issuesPage, issuesPageSize])
 
-  if (loading && !data) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />
-  if (!data) return null
-
-  const severeCount = (data.severity_stats || []).find((s: any) => s.severity === '严重')?.count ?? 0
+  const safeData = data || {}
+  const severeCount = (safeData.severity_stats || []).find((s: any) => s.severity === '严重')?.count ?? 0
 
   // Room stats bar chart
   const roomChartOption = {
@@ -48,14 +52,14 @@ export default function Dashboard() {
     grid: { left: 20, right: 20, bottom: 20, top: 40, containLabel: true },
     xAxis: {
       type: 'category',
-      data: (data.room_stats || []).map((s: any) => s.datacenter || '未知'),
+      data: (safeData.room_stats || []).map((s: any) => s.datacenter || '未知'),
       axisLabel: { rotate: 30, fontSize: 11 },
     },
     yAxis: { type: 'value', name: '问题数' },
     series: [{
       name: '未解决问题',
       type: 'bar',
-      data: (data.room_stats || []).map((s: any) => s.count),
+      data: (safeData.room_stats || []).map((s: any) => s.count),
       itemStyle: { color: '#ff4d4f' },
       label: { show: true, position: 'top' },
     }],
@@ -67,14 +71,14 @@ export default function Dashboard() {
     grid: { left: 20, right: 20, bottom: 20, top: 40, containLabel: true },
     xAxis: {
       type: 'category',
-      data: (data.trends || []).map((t: any) => t.date),
+      data: (safeData.trends || []).map((t: any) => t.date),
       axisLabel: { rotate: 30, fontSize: 10 },
     },
     yAxis: { type: 'value', name: '新增问题数' },
     series: [{
       name: '新增问题',
       type: 'line',
-      data: (data.trends || []).map((t: any) => t.count),
+      data: (safeData.trends || []).map((t: any) => t.count),
       smooth: true,
       areaStyle: { opacity: 0.3 },
       itemStyle: { color: '#1677ff' },
@@ -89,7 +93,7 @@ export default function Dashboard() {
       name: '问题等级',
       type: 'pie',
       radius: ['40%', '70%'],
-      data: (data.severity_stats || []).map((s: any) => ({
+      data: (safeData.severity_stats || []).map((s: any) => ({
         name: s.severity || '未知',
         value: s.count,
         itemStyle: { color: severityColor[s.severity] || '#aaa' },
@@ -104,14 +108,14 @@ export default function Dashboard() {
     grid: { left: 20, right: 20, bottom: 20, top: 40, containLabel: true },
     xAxis: {
       type: 'category',
-      data: (data.datacenter_device_stats || []).map((s: any) => s.datacenter || '未知'),
+      data: (safeData.datacenter_device_stats || []).map((s: any) => s.datacenter || '未知'),
       axisLabel: { rotate: 30, fontSize: 11 },
     },
     yAxis: { type: 'value', name: '设备数' },
     series: [{
       name: '设备数量',
       type: 'bar',
-      data: (data.datacenter_device_stats || []).map((s: any) => s.count),
+      data: (safeData.datacenter_device_stats || []).map((s: any) => s.count),
       itemStyle: { color: '#1677ff' },
       label: { show: true, position: 'top' },
     }],
@@ -125,7 +129,7 @@ export default function Dashboard() {
       name: '设备类型',
       type: 'pie',
       radius: ['35%', '65%'],
-      data: (data.device_type_stats || []).map((s: any) => ({
+      data: (safeData.device_type_stats || []).map((s: any) => ({
         name: s.device_type || '未知',
         value: s.count,
       })),
@@ -147,8 +151,24 @@ export default function Dashboard() {
   ]
 
   return (
-    <div style={{ padding: '16px' }}>
+    <Spin spinning={loading && !data} size="large">
+    <div style={{ padding: '16px', minHeight: 200 }}>
       <Title level={4} style={{ marginBottom: 16 }}>数据中心巡检大屏</Title>
+
+      {error && (
+        <Alert
+          type="error"
+          showIcon
+          closable
+          style={{ marginBottom: 16 }}
+          message={error}
+          action={
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchData(issuesPage, issuesPageSize)}>
+              重试
+            </Button>
+          }
+        />
+      )}
 
       {/* 统计卡片 */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
@@ -156,7 +176,7 @@ export default function Dashboard() {
           <Card>
             <Statistic
               title="设备总数"
-              value={data.total_devices ?? 0}
+              value={safeData.total_devices ?? 0}
               valueStyle={{ color: '#1677ff' }}
               prefix={<DatabaseOutlined />}
             />
@@ -166,7 +186,7 @@ export default function Dashboard() {
           <Card>
             <Statistic
               title="未解决问题总数"
-              value={data.status_stats?.reduce((s: number, i: any) => i.status !== '已解决' ? s + i.count : s, 0) ?? 0}
+              value={safeData.status_stats?.reduce((s: number, i: any) => i.status !== '已解决' ? s + i.count : s, 0) ?? 0}
               valueStyle={{ color: '#ff4d4f' }}
               prefix={<AlertOutlined />}
             />
@@ -186,7 +206,7 @@ export default function Dashboard() {
           <Card>
             <Statistic
               title="已解决问题"
-              value={data.status_stats?.find((s: any) => s.status === '已解决')?.count ?? 0}
+              value={safeData.status_stats?.find((s: any) => s.status === '已解决')?.count ?? 0}
               valueStyle={{ color: '#52c41a' }}
               prefix={<CheckCircleOutlined />}
             />
@@ -196,7 +216,7 @@ export default function Dashboard() {
           <Card>
             <Statistic
               title="涉及机房数"
-              value={data.room_stats?.length ?? 0}
+              value={safeData.room_stats?.length ?? 0}
               valueStyle={{ color: '#722ed1' }}
             />
           </Card>
@@ -207,18 +227,18 @@ export default function Dashboard() {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} md={12}>
           <Card title="各机房未解决问题数量" size="small">
-            <ReactECharts option={roomChartOption} style={{ height: 280 }} />
+            <ReactECharts option={roomChartOption} style={{ height: 280, width: '100%' }} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} md={6}>
           <Card title="问题等级分布" size="small">
-            <ReactECharts option={severityChartOption} style={{ height: 280 }} />
+            <ReactECharts option={severityChartOption} style={{ height: 280, width: '100%' }} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} md={6}>
           <Card title="状态统计" size="small" style={{ height: '100%' }}>
             <div style={{ padding: '20px 0' }}>
-              {(data.status_stats || []).map((s: any) => (
+              {(safeData.status_stats || []).map((s: any) => (
                 <div key={s.status} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                   <Tag color={statusColor[s.status] || 'default'}>{s.status || '未知'}</Tag>
                   <Badge count={s.count} showZero color={statusColor[s.status] || '#aaa'} overflowCount={9999} />
@@ -233,12 +253,12 @@ export default function Dashboard() {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} md={14}>
           <Card title="机房设备统计" size="small">
-            <ReactECharts option={datacenterDeviceChartOption} style={{ height: 280 }} />
+            <ReactECharts option={datacenterDeviceChartOption} style={{ height: 280, width: '100%' }} />
           </Card>
         </Col>
         <Col xs={24} md={10}>
           <Card title="设备类型统计" size="small">
-            <ReactECharts option={deviceTypeChartOption} style={{ height: 280 }} />
+            <ReactECharts option={deviceTypeChartOption} style={{ height: 280, width: '100%' }} />
           </Card>
         </Col>
       </Row>
@@ -247,22 +267,22 @@ export default function Dashboard() {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col span={24}>
           <Card title="近30天问题趋势" size="small">
-            <ReactECharts option={trendChartOption} style={{ height: 200 }} />
+            <ReactECharts option={trendChartOption} style={{ height: 200, width: '100%' }} />
           </Card>
         </Col>
       </Row>
 
       {/* 未解决问题列表（支持分页） */}
       <Card title="近期未解决问题（按发现时间排序）" size="small">
-        <Table
-          dataSource={data.recent_issues || []}
+        <ResponsiveTable<any>
+          dataSource={safeData.recent_issues || []}
           columns={columns}
           rowKey="id"
           size="small"
           loading={loading}
           scroll={{ x: 800 }}
           pagination={{
-            total: data.recent_issues_total ?? 0,
+            total: safeData.recent_issues_total ?? 0,
             current: issuesPage,
             pageSize: issuesPageSize,
             showSizeChanger: true,
@@ -272,8 +292,32 @@ export default function Dashboard() {
               setIssuesPageSize(pageSize)
             },
           }}
+          mobileCardRender={(record: any) => (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Space size={4} wrap>
+                  <Tag color={severityColor[record.severity]}>{record.severity}</Tag>
+                  <Tag color={statusColor[record.status]}>{record.status}</Tag>
+                </Space>
+                <span style={{ fontSize: 12, color: '#999' }}>
+                  {dayjs(record.found_at).format('MM-DD HH:mm')}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 4 }}>
+                <span style={{ color: '#999' }}>位置：</span>
+                {record.datacenter} / {record.cabinet || '-'}
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 4, wordBreak: 'break-word' }}>
+                <span style={{ color: '#999' }}>问题：</span>{record.issue}
+              </div>
+              <div style={{ fontSize: 13 }}>
+                <span style={{ color: '#999' }}>巡检人：</span>{record.inspector || '-'}
+              </div>
+            </div>
+          )}
         />
       </Card>
     </div>
+    </Spin>
   )
 }

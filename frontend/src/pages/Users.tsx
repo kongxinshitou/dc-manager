@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Button, Modal, Form, Input, Select, Tag, message, Popconfirm, Space, Typography } from 'antd'
+import { Button, Modal, Form, Input, Select, Tag, message, Popconfirm, Space, Typography } from 'antd'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import ResponsiveTable from '../components/ResponsiveTable'
 import { getUsers, createUser, updateUser, resetPassword, deleteUser, getRoles, type UserInfo, type RoleInfo } from '../api'
 
 export default function Users() {
@@ -126,7 +127,7 @@ export default function Users() {
         </Space>
       </div>
 
-      <Table
+      <ResponsiveTable<UserInfo>
         dataSource={users}
         columns={columns}
         rowKey="id"
@@ -134,6 +135,29 @@ export default function Users() {
         pagination={false}
         size="small"
         scroll={{ x: 700 }}
+        mobileCardRender={(record) => (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <strong style={{ fontSize: 15 }}>{record.username}</strong>
+              <Tag color={record.status === 'active' ? 'green' : 'red'}>
+                {record.status === 'active' ? '正常' : '禁用'}
+              </Tag>
+            </div>
+            <div style={{ fontSize: 13, marginBottom: 4 }}>
+              <Typography.Text type="secondary">显示名：</Typography.Text>{record.display_name || '-'}
+            </div>
+            <div style={{ fontSize: 13, marginBottom: 8 }}>
+              <Typography.Text type="secondary">角色：</Typography.Text>{record.role?.display_name || record.role_name || '-'}
+            </div>
+            <Space size={4} wrap>
+              <Button size="small" onClick={() => handleEdit(record)}>编辑</Button>
+              <Button size="small" onClick={() => { setResettingUser(record); resetForm.resetFields(); setResetModalOpen(true) }}>重置密码</Button>
+              <Popconfirm title="确认删除该用户？" onConfirm={() => handleDelete(record.id)}>
+                <Button size="small" danger>删除</Button>
+              </Popconfirm>
+            </Space>
+          </div>
+        )}
       />
 
       <Modal

@@ -29,3 +29,14 @@ frontend/.vite/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local artifacts (not committed)
+/.playwright-mcp/
+/desktop-*.png
+/mobile-*.png
+/mobile/
+/需求/
+
+# DB backups
+backend/*.db.bak.*
+backend/dc_manager.db.bak.*
