@@ -13,7 +13,7 @@ import dayjs from 'dayjs'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 import type { SorterResult } from 'antd/es/table/interface'
 import {
-  getDevices, getDevice, createDevice, updateDevice, deleteDevice,
+  getDevices, createDevice, updateDevice, deleteDevice,
   getDeviceOptions, batchDeleteDevices, exportDevices,
   importDevicesPreview, importDevicesConfirm,
   submitApproval, getDatacenters, getDatacenterCabinets,
@@ -59,8 +59,6 @@ const warrantyLabel: Record<string, string> = {
 }
 
 interface DevicesProps {
-  focusDeviceId?: number | null
-  onFocusHandled?: () => void
   onViewDetail?: (id: number) => void
 }
 
@@ -145,7 +143,7 @@ const buildGrafanaUrl = (config: DashboardConfig, mgmtIp: string) => {
   return `${GRAFANA_BASE_URL}/d/${config.uid}/${config.slug}?kiosk&${params.toString()}`
 }
 
-export default function Devices({ focusDeviceId, onFocusHandled, onViewDetail }: DevicesProps) {
+export default function Devices({ onViewDetail }: DevicesProps) {
   const [data, setData] = useState<DeviceWithWarranty[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -217,15 +215,6 @@ export default function Devices({ focusDeviceId, onFocusHandled, onViewDetail }:
     fetchData(query)
     getDatacenters().then(setDcList)
   }, [])
-
-  useEffect(() => {
-    if (focusDeviceId) {
-      getDevice(focusDeviceId).then(res => {
-        openEdit(res.device)
-        onFocusHandled?.()
-      }).catch(() => onFocusHandled?.())
-    }
-  }, [focusDeviceId])
 
   const handleSearch = (values: any) => {
     const q = { ...query, ...values, page: 1 }

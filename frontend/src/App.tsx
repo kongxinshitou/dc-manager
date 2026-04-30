@@ -29,7 +29,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : null
   })
   const [page, setPage] = useState('dashboard')
-  const [focusDeviceId, setFocusDeviceId] = useState<number | null>(null)
   const [selectedInspectionId, setSelectedInspectionId] = useState<number | null>(null)
   const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null)
   const { token } = theme.useToken()
@@ -48,11 +47,6 @@ export default function App() {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setCurrentUser(null)
-  }
-
-  const handleGoToDevice = (id: number) => {
-    setFocusDeviceId(id)
-    setPage('devices')
   }
 
   const handleViewDetail = (id: number) => {
@@ -98,8 +92,6 @@ export default function App() {
     if (page === 'devices') {
       return (
         <Devices
-          focusDeviceId={focusDeviceId}
-          onFocusHandled={() => setFocusDeviceId(null)}
           onViewDetail={handleViewDeviceDetail}
         />
       )
@@ -112,7 +104,7 @@ export default function App() {
     )
     if (page === 'inspections') return (
       <Inspections
-        onGoToDevice={handleGoToDevice}
+        onGoToDevice={handleViewDeviceDetail}
         onViewDetail={handleViewDetail}
         permissions={permissions}
       />
@@ -121,7 +113,7 @@ export default function App() {
       <InspectionDetail
         id={selectedInspectionId}
         onBack={() => setPage('inspections')}
-        onGoToDevice={handleGoToDevice}
+        onGoToDevice={handleViewDeviceDetail}
       />
     )
     if (page === 'users') return <Users />
