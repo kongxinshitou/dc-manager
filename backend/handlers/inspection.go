@@ -5,6 +5,7 @@ import (
 	"dcmanager/config"
 	"dcmanager/database"
 	"dcmanager/models"
+	"dcmanager/services"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,6 +26,13 @@ var (
 	inspURangeRe  = regexp.MustCompile(`^(\d+)\s*[-~]\s*(\d+)\s*[Uu]$`)
 	inspUSingleRe = regexp.MustCompile(`^(\d+)\s*[Uu]$`)
 )
+
+func inspectionLifecycleService() services.InspectionLifecycleService {
+	return services.InspectionLifecycleService{
+		DB:            database.DB,
+		WebhookSender: services.NewConfiguredInspectionWebhookSender(database.DB),
+	}
+}
 
 // normalizeSeverity maps raw severity values to 严重/一般/轻微
 func normalizeSeverity(raw string) string {
@@ -134,6 +142,7 @@ func autoMatchDeviceLocal(datacenter, cabinet, uPosition string) *uint {
 var allowedInspectionOrderBy = map[string]bool{
 	"id": true, "found_at": true, "resolved_at": true,
 	"severity": true, "status": true, "datacenter": true, "inspector": true,
+	"assignee_name": true, "escalation_level": true, "last_responded_at": true, "last_escalated_at": true,
 }
 
 func GetInspections(c *gin.Context) {
@@ -159,11 +168,22 @@ func GetInspections(c *gin.Context) {
 	if query.Inspector != "" {
 		db = db.Where("inspector LIKE ?", "%"+query.Inspector+"%")
 	}
+	if query.AssigneeID > 0 {
+		db = db.Where("assignee_id = ?", query.AssigneeID)
+	}
+	if query.Assignee != "" {
+		db = db.Where("assignee_name LIKE ?", "%"+query.Assignee+"%")
+	}
 	if query.Severity != "" {
 		db = db.Where("severity = ?", query.Severity)
 	}
 	if query.Status != "" {
 		db = db.Where("status = ?", query.Status)
+	}
+	if query.Escalated == "true" {
+		db = db.Where("escalation_level > 0")
+	} else if query.Escalated == "false" {
+		db = db.Where("escalation_level = 0")
 	}
 	if query.StartTime != "" {
 		t, err := time.Parse("2006-01-02", query.StartTime)
@@ -179,8 +199,8 @@ func GetInspections(c *gin.Context) {
 	}
 	if query.Keyword != "" {
 		kw := "%" + query.Keyword + "%"
-		db = db.Where("datacenter LIKE ? OR cabinet LIKE ? OR inspector LIKE ? OR issue LIKE ? OR remark LIKE ?",
-			kw, kw, kw, kw, kw)
+		db = db.Where("datacenter LIKE ? OR cabinet LIKE ? OR inspector LIKE ? OR assignee_name LIKE ? OR issue LIKE ? OR remark LIKE ?",
+			kw, kw, kw, kw, kw, kw)
 	}
 
 	var total int64
@@ -196,7 +216,7 @@ func GetInspections(c *gin.Context) {
 	}
 
 	var inspections []models.Inspection
-	db.Order(orderBy+" "+sort).Offset((query.Page-1)*query.PageSize).Limit(query.PageSize).Find(&inspections)
+	db.Order(orderBy + " " + sort).Offset((query.Page - 1) * query.PageSize).Limit(query.PageSize).Find(&inspections)
 
 	c.JSON(http.StatusOK, gin.H{
 		"total": total,
@@ -208,7 +228,7 @@ func GetInspections(c *gin.Context) {
 func GetInspection(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var inspection models.Inspection
-	if err := database.DB.Preload("Device").Preload("Images").First(&inspection, id).Error; err != nil {
+	if err := database.DB.Preload("Device").Preload("Images").Preload("Events").First(&inspection, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "inspection not found"})
 		return
 	}
@@ -225,11 +245,18 @@ func CreateInspection(c *gin.Context) {
 	if inspection.FoundAt.IsZero() {
 		inspection.FoundAt = time.Now()
 	}
+	inspection.Severity = normalizeSeverity(inspection.Severity)
+	inspection.Status = normalizeInspStatus(inspection.Status)
+	if err := services.ApplyInspectionAssignee(database.DB, &inspection); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := database.DB.Create(&inspection).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	database.DB.Preload("Device").First(&inspection, inspection.ID)
+	inspectionLifecycleService().RecordCreated(inspection, getUserID(c))
 	c.JSON(http.StatusCreated, inspection)
 }
 
@@ -245,9 +272,46 @@ func UpdateInspection(c *gin.Context) {
 		return
 	}
 	inspection.ID = uint(id)
+	inspection.Severity = normalizeSeverity(inspection.Severity)
+	inspection.Status = normalizeInspStatus(inspection.Status)
+	if err := services.ApplyInspectionAssignee(database.DB, &inspection); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if inspection.Status == models.InspectionStatusResolved && inspection.ResolvedAt == nil {
+		now := time.Now()
+		inspection.ResolvedAt = &now
+	}
 	database.DB.Save(&inspection)
 	database.DB.Preload("Device").First(&inspection, id)
 	c.JSON(http.StatusOK, inspection)
+}
+
+func TransitionInspection(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid inspection id"})
+		return
+	}
+	var body services.InspectionTransitionRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	inspection, err := inspectionLifecycleService().Transition(uint(id), body, getUserID(c))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	database.DB.Preload("Device").First(inspection, inspection.ID)
+	c.JSON(http.StatusOK, inspection)
+}
+
+func GetInspectionEvents(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var events []models.InspectionEvent
+	database.DB.Where("inspection_id = ?", id).Order("created_at desc, id desc").Find(&events)
+	c.JSON(http.StatusOK, events)
 }
 
 func DeleteInspection(c *gin.Context) {
@@ -400,18 +464,19 @@ func ImportInspections(c *gin.Context) {
 			}
 
 			insp := models.Inspection{
-				Datacenter: datacenter,
-				Cabinet:    cabinet,
-				UPosition:  upos,
-				StartU:     startU,
-				EndU:       endU,
-				FoundAt:    foundAt,
-				Inspector:  inspector,
-				Issue:      issue,
-				Severity:   normalizeSeverity(getCol(row, "等级", "严重程度", "问题等级", "级别")),
-				Status:     normalizeInspStatus(getCol(row, "状态", "处理状态", "问题状态")),
-				ResolvedAt: getCellDate(row, "解决时间", "处理时间", "完成时间"),
-				Remark:     getCol(row, "备注", "备注说明", "说明"),
+				Datacenter:   datacenter,
+				Cabinet:      cabinet,
+				UPosition:    upos,
+				StartU:       startU,
+				EndU:         endU,
+				FoundAt:      foundAt,
+				Inspector:    inspector,
+				AssigneeName: getCol(row, "责任人", "处理人", "负责人"),
+				Issue:        issue,
+				Severity:     normalizeSeverity(getCol(row, "等级", "严重程度", "问题等级", "级别")),
+				Status:       normalizeInspStatus(getCol(row, "状态", "处理状态", "问题状态")),
+				ResolvedAt:   getCellDate(row, "解决时间", "处理时间", "完成时间"),
+				Remark:       getCol(row, "备注", "备注说明", "说明"),
 			}
 
 			allInspections = append(allInspections, insp)
@@ -433,6 +498,18 @@ func ImportInspections(c *gin.Context) {
 	inserted := 0
 	skipped := 0
 	for _, insp := range allInspections {
+		if insp.AssigneeName != "" {
+			user, err := services.FindInspectionAssigneeByName(database.DB, insp.AssigneeName)
+			if err != nil || user == nil {
+				skipped++
+				continue
+			}
+			insp.AssigneeID = &user.ID
+			insp.AssigneeName = user.DisplayName
+			if insp.AssigneeName == "" {
+				insp.AssigneeName = user.Username
+			}
+		}
 		if insp.Datacenter != "" && insp.Cabinet != "" {
 			if deviceID := autoMatchDeviceLocal(insp.Datacenter, insp.Cabinet, insp.UPosition); deviceID != nil {
 				insp.DeviceID = deviceID

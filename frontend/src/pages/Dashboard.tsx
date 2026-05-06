@@ -144,7 +144,11 @@ export default function Dashboard() {
       render: (v: string) => <Tag color={severityColor[v]}>{v}</Tag> },
     { title: '状态', dataIndex: 'status', key: 'status', width: 80,
       render: (v: string) => <Tag color={statusColor[v]}>{v}</Tag> },
+    { title: '升级', dataIndex: 'escalation_level', key: 'escalation_level', width: 70,
+      render: (v: number) => <Tag color={v > 0 ? 'volcano' : 'default'}>{v > 0 ? `L${v}` : '无'}</Tag> },
     { title: '巡检人', dataIndex: 'inspector', key: 'inspector', width: 80 },
+    { title: '责任人', dataIndex: 'assignee_name', key: 'assignee_name', width: 90,
+      render: (v: string) => v || '-' },
   ]
 
   return (
@@ -295,6 +299,7 @@ export default function Dashboard() {
                 <Space size={4} wrap>
                   <Tag color={severityColor[record.severity]}>{record.severity}</Tag>
                   <Tag color={statusColor[record.status]}>{record.status}</Tag>
+                  {record.escalation_level > 0 && <Tag color="volcano">L{record.escalation_level}</Tag>}
                 </Space>
                 <span style={{ fontSize: 12, color: '#999' }}>
                   {dayjs(record.found_at).format('MM-DD HH:mm')}
@@ -309,6 +314,9 @@ export default function Dashboard() {
               </div>
               <div style={{ fontSize: 13 }}>
                 <span style={{ color: '#999' }}>巡检人：</span>{record.inspector || '-'}
+              </div>
+              <div style={{ fontSize: 13 }}>
+                <span style={{ color: '#999' }}>责任人：</span>{record.assignee_name || '-'}
               </div>
             </div>
           )}

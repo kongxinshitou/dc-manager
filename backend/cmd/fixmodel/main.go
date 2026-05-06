@@ -119,7 +119,8 @@ func main() {
 	if !apply {
 		fmt.Println("\nDry run only. Re-run with -apply to delete the rows above.")
 		fmt.Println("Tip: back up the database first, e.g.:")
-		fmt.Println("    cp dc_manager.db dc_manager.db.bak.fixmodel.$(date +%Y%m%d-%H%M%S)") //nolint:govet
+		backupCmd := strings.ReplaceAll("    cp dc_manager.db dc_manager.db.bak.fixmodel.$(date +@Y@m@d-@H@M@S)", "@", "%")
+		fmt.Println(backupCmd)
 		return
 	}
 

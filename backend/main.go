@@ -6,6 +6,7 @@ import (
 	"dcmanager/handlers"
 	"dcmanager/mcp"
 	"dcmanager/middleware"
+	"dcmanager/services"
 	"log"
 	"os"
 
@@ -19,6 +20,7 @@ func main() {
 		dbPath = "dc_manager.db"
 	}
 	database.Init(dbPath)
+	services.StartInspectionEscalationWorker(database.DB)
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
@@ -97,10 +99,12 @@ func main() {
 			// 巡检记录 - 读取
 			auth.GET("/inspections", handlers.GetInspections)
 			auth.GET("/inspections/:id", handlers.GetInspection)
+			auth.GET("/inspections/:id/events", handlers.GetInspectionEvents)
 
 			// 巡检记录 - 写入
 			auth.POST("/inspections", middleware.PermissionRequired("inspection:write"), handlers.CreateInspection)
 			auth.PUT("/inspections/:id", middleware.PermissionRequired("inspection:write"), handlers.UpdateInspection)
+			auth.POST("/inspections/:id/transition", middleware.PermissionRequired("inspection:write"), handlers.TransitionInspection)
 			auth.DELETE("/inspections/:id", middleware.PermissionRequired("inspection:delete"), handlers.DeleteInspection)
 			auth.DELETE("/inspections/batch", middleware.PermissionRequired("inspection:delete"), handlers.BatchDeleteInspections)
 			auth.POST("/inspections/import", middleware.PermissionRequired("inspection:import"), handlers.ImportInspections)
@@ -118,6 +122,7 @@ func main() {
 			auth.GET("/permissions", middleware.PermissionRequired("role:manage"), handlers.GetPermissionInfo)
 
 			// 用户管理
+			auth.GET("/users/options", handlers.GetUserOptions)
 			auth.GET("/users", middleware.PermissionRequired("user:manage"), handlers.GetUsers)
 			auth.POST("/users", middleware.PermissionRequired("user:manage"), handlers.CreateUser)
 			auth.PUT("/users/:id", middleware.PermissionRequired("user:manage"), handlers.UpdateUser)

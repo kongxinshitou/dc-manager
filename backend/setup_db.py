@@ -51,15 +51,38 @@ CREATE TABLE IF NOT EXISTS inspections (
     u_position TEXT,
     found_at DATETIME,
     inspector TEXT,
+    assignee_id INTEGER,
+    assignee_name TEXT,
     issue TEXT,
     severity TEXT,
     status TEXT,
     resolved_at DATETIME,
+    escalation_level INTEGER DEFAULT 0,
+    last_responded_at DATETIME,
+    last_escalated_at DATETIME,
     remark TEXT,
     created_at DATETIME,
     updated_at DATETIME,
     deleted_at DATETIME,
-    FOREIGN KEY (device_id) REFERENCES devices(id)
+    FOREIGN KEY (device_id) REFERENCES devices(id),
+    FOREIGN KEY (assignee_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS inspection_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inspection_id INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    from_status TEXT,
+    to_status TEXT,
+    operator_id INTEGER,
+    assignee_id INTEGER,
+    assignee_name TEXT,
+    escalation_level INTEGER DEFAULT 0,
+    remark TEXT,
+    webhook_status TEXT DEFAULT 'skipped',
+    webhook_error TEXT,
+    created_at DATETIME,
+    FOREIGN KEY (inspection_id) REFERENCES inspections(id)
 );
 ''')
 conn.commit()

@@ -17,7 +17,7 @@ import (
 var DB *gorm.DB
 
 var (
-	dbURangeRe = regexp.MustCompile(`^(\d+)\s*[-~]\s*(\d+)\s*[Uu]$`)
+	dbURangeRe  = regexp.MustCompile(`^(\d+)\s*[-~]\s*(\d+)\s*[Uu]$`)
 	dbUSingleRe = regexp.MustCompile(`^(\d+)\s*[Uu]$`)
 )
 
@@ -44,7 +44,7 @@ func Init(dsn string) {
 
 	err = DB.AutoMigrate(
 		&models.Device{}, &models.Inspection{}, &models.Role{}, &models.User{},
-		&models.InspectionImage{}, &models.DeviceOperation{}, &models.SystemConfig{},
+		&models.InspectionImage{}, &models.InspectionEvent{}, &models.DeviceOperation{}, &models.SystemConfig{},
 		&models.Approval{}, &models.Datacenter{}, &models.CabinetColumn{},
 		&models.CabinetRow{}, &models.Cabinet{},
 	)
@@ -153,6 +153,24 @@ func seedSystemConfig() {
 			Value: "[]",
 		})
 		log.Println("Created default system config: default_custodians")
+	}
+
+	DB.Model(&models.SystemConfig{}).Where("`key` = ?", "inspection_webhook_config").Count(&count)
+	if count == 0 {
+		DB.Create(&models.SystemConfig{
+			Key:   "inspection_webhook_config",
+			Value: `{"enabled":false,"webhook_url":""}`,
+		})
+		log.Println("Created default system config: inspection_webhook_config")
+	}
+
+	DB.Model(&models.SystemConfig{}).Where("`key` = ?", "inspection_escalation_config").Count(&count)
+	if count == 0 {
+		DB.Create(&models.SystemConfig{
+			Key:   "inspection_escalation_config",
+			Value: `{"enabled":true,"scan_interval_minutes":5,"severity_hours":{"严重":2,"一般":8,"轻微":24}}`,
+		})
+		log.Println("Created default system config: inspection_escalation_config")
 	}
 }
 

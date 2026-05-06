@@ -4,6 +4,7 @@ import (
 	"dcmanager/config"
 	"dcmanager/database"
 	"dcmanager/models"
+	"dcmanager/services"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -243,6 +244,7 @@ func getTools() []Tool {
 					"datacenter": map[string]interface{}{"type": "string", "description": "机房名称, 格式通常为IDC2-1, IDC1-2, IDC1-1, 如果遇到不规则的机房名称, 如1-1则可以改为IDC1-1, 2-1改为IDC2-1, 以此类推"},
 					"cabinet":    map[string]interface{}{"type": "string", "description": "机柜号, 格式通常为A-01, A-02, B-01, B-02, C-01, C-02, D-01, D-02, E-01, E-02, F-01, F-02, 如果遇到不规则的机柜, 如A01则可以改为A-01, B1改为B-01, 以此类推"},
 					"inspector":  map[string]interface{}{"type": "string", "description": "巡检人"},
+					"assignee":   map[string]interface{}{"type": "string", "description": "责任人用户名或显示名"},
 					"severity":   map[string]interface{}{"type": "string", "description": "问题等级：严重/一般/轻微"},
 					"status":     map[string]interface{}{"type": "string", "description": "状态：待处理/处理中/已解决"},
 					"start_time": map[string]interface{}{"type": "string", "description": "开始时间 YYYY-MM-DD"},
@@ -259,16 +261,18 @@ func getTools() []Tool {
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"device_id":  map[string]interface{}{"type": "integer", "description": "关联设备ID（可选）"},
-					"datacenter": map[string]interface{}{"type": "string", "description": "机房名称, 格式通常为IDC2-1, IDC1-2, IDC1-1, 如果遇到不规则的机房名称, 如1-1则可以改为IDC1-1, 2-1改为IDC2-1, 以此类推"},
-					"cabinet":    map[string]interface{}{"type": "string", "description": "机柜号, 格式通常为A-01, A-02, B-01, B-02, C-01, C-02, D-01, D-02, E-01, E-02, F-01, F-02, 如果遇到不规则的机柜, 如A01则可以改为A-01, B1改为B-01, 以此类推"},
-					"u_position": map[string]interface{}{"type": "string", "description": "U位置, 格式通常为01U, 03-10U, 如果发现个位数省略前面的0则加上去, 如1U改为01U, 5-6U改为05-06U, 以此类推, 其他情况则为空"},
-					"found_at":   map[string]interface{}{"type": "string", "description": "发现时间 RFC3339格式，默认当前时间"},
-					"inspector":  map[string]interface{}{"type": "string", "description": "巡检人"},
-					"issue":      map[string]interface{}{"type": "string", "description": "问题描述"},
-					"severity":   map[string]interface{}{"type": "string", "description": "等级：严重/一般/轻微"},
-					"status":     map[string]interface{}{"type": "string", "description": "状态：待处理/处理中/已解决"},
-					"remark":     map[string]interface{}{"type": "string", "description": "备注"},
+					"device_id":   map[string]interface{}{"type": "integer", "description": "关联设备ID（可选）"},
+					"datacenter":  map[string]interface{}{"type": "string", "description": "机房名称, 格式通常为IDC2-1, IDC1-2, IDC1-1, 如果遇到不规则的机房名称, 如1-1则可以改为IDC1-1, 2-1改为IDC2-1, 以此类推"},
+					"cabinet":     map[string]interface{}{"type": "string", "description": "机柜号, 格式通常为A-01, A-02, B-01, B-02, C-01, C-02, D-01, D-02, E-01, E-02, F-01, F-02, 如果遇到不规则的机柜, 如A01则可以改为A-01, B1改为B-01, 以此类推"},
+					"u_position":  map[string]interface{}{"type": "string", "description": "U位置, 格式通常为01U, 03-10U, 如果发现个位数省略前面的0则加上去, 如1U改为01U, 5-6U改为05-06U, 以此类推, 其他情况则为空"},
+					"found_at":    map[string]interface{}{"type": "string", "description": "发现时间 RFC3339格式，默认当前时间"},
+					"inspector":   map[string]interface{}{"type": "string", "description": "巡检人"},
+					"assignee":    map[string]interface{}{"type": "string", "description": "责任人用户名或显示名（可选，必须匹配系统中的启用用户）"},
+					"assignee_id": map[string]interface{}{"type": "integer", "description": "责任人用户ID（可选）"},
+					"issue":       map[string]interface{}{"type": "string", "description": "问题描述"},
+					"severity":    map[string]interface{}{"type": "string", "description": "等级：严重/一般/轻微"},
+					"status":      map[string]interface{}{"type": "string", "description": "状态：待处理/处理中/已解决"},
+					"remark":      map[string]interface{}{"type": "string", "description": "备注"},
 				},
 				"required": []string{"datacenter", "inspector", "issue", "severity", "status"},
 			},
@@ -319,15 +323,17 @@ func getTools() []Tool {
 						"items": map[string]interface{}{
 							"type": "object",
 							"properties": map[string]interface{}{
-								"datacenter": map[string]interface{}{"type": "string", "description": "机房名称, 格式通常为IDC2-1, IDC1-2, IDC1-1, 如果遇到不规则的机房名称, 如1-1则可以改为IDC1-1"},
-								"cabinet":    map[string]interface{}{"type": "string", "description": "机柜号, 格式通常为A-01, A-02, B-01, 如A01则改为A-01"},
-								"u_position": map[string]interface{}{"type": "string", "description": "U位置, 格式通常为01U, 03-10U, 如1U改为01U"},
-								"found_at":   map[string]interface{}{"type": "string", "description": "发现时间 RFC3339格式，默认当前时间"},
-								"inspector":  map[string]interface{}{"type": "string", "description": "巡检人"},
-								"issue":      map[string]interface{}{"type": "string", "description": "问题描述"},
-								"severity":   map[string]interface{}{"type": "string", "description": "等级：严重/一般/轻微，也支持critical/high/low等英文"},
-								"status":     map[string]interface{}{"type": "string", "description": "状态：待处理/处理中/已解决，也支持open/processing/resolved等英文"},
-								"remark":     map[string]interface{}{"type": "string", "description": "备注"},
+								"datacenter":  map[string]interface{}{"type": "string", "description": "机房名称, 格式通常为IDC2-1, IDC1-2, IDC1-1, 如果遇到不规则的机房名称, 如1-1则可以改为IDC1-1"},
+								"cabinet":     map[string]interface{}{"type": "string", "description": "机柜号, 格式通常为A-01, A-02, B-01, 如A01则改为A-01"},
+								"u_position":  map[string]interface{}{"type": "string", "description": "U位置, 格式通常为01U, 03-10U, 如1U改为01U"},
+								"found_at":    map[string]interface{}{"type": "string", "description": "发现时间 RFC3339格式，默认当前时间"},
+								"inspector":   map[string]interface{}{"type": "string", "description": "巡检人"},
+								"assignee":    map[string]interface{}{"type": "string", "description": "责任人用户名或显示名（可选，必须匹配系统中的启用用户）"},
+								"assignee_id": map[string]interface{}{"type": "integer", "description": "责任人用户ID（可选）"},
+								"issue":       map[string]interface{}{"type": "string", "description": "问题描述"},
+								"severity":    map[string]interface{}{"type": "string", "description": "等级：严重/一般/轻微，也支持critical/high/low等英文"},
+								"status":      map[string]interface{}{"type": "string", "description": "状态：待处理/处理中/已解决，也支持open/processing/resolved等英文"},
+								"remark":      map[string]interface{}{"type": "string", "description": "备注"},
 							},
 							"required": []string{"inspector", "issue"},
 						},
@@ -498,6 +504,7 @@ func handleQueryInspections(args json.RawMessage) (string, error) {
 		Datacenter string `json:"datacenter"`
 		Cabinet    string `json:"cabinet"`
 		Inspector  string `json:"inspector"`
+		Assignee   string `json:"assignee"`
 		Severity   string `json:"severity"`
 		Status     string `json:"status"`
 		StartTime  string `json:"start_time"`
@@ -528,6 +535,9 @@ func handleQueryInspections(args json.RawMessage) (string, error) {
 	if params.Inspector != "" {
 		db = db.Where("inspector LIKE ?", "%"+params.Inspector+"%")
 	}
+	if params.Assignee != "" {
+		db = db.Where("assignee_name LIKE ?", "%"+params.Assignee+"%")
+	}
 	if params.Severity != "" {
 		db = db.Where("severity = ?", params.Severity)
 	}
@@ -548,7 +558,7 @@ func handleQueryInspections(args json.RawMessage) (string, error) {
 	}
 	if params.Keyword != "" {
 		kw := "%" + params.Keyword + "%"
-		db = db.Where("datacenter LIKE ? OR cabinet LIKE ? OR inspector LIKE ? OR issue LIKE ?", kw, kw, kw, kw)
+		db = db.Where("datacenter LIKE ? OR cabinet LIKE ? OR inspector LIKE ? OR assignee_name LIKE ? OR issue LIKE ?", kw, kw, kw, kw, kw)
 	}
 
 	var total int64
@@ -570,6 +580,8 @@ func handleAddInspection(args json.RawMessage) (string, error) {
 		UPosition  string `json:"u_position"`
 		FoundAt    string `json:"found_at"`
 		Inspector  string `json:"inspector"`
+		Assignee   string `json:"assignee"`
+		AssigneeID *uint  `json:"assignee_id"`
 		Issue      string `json:"issue"`
 		Severity   string `json:"severity"`
 		Status     string `json:"status"`
@@ -607,10 +619,21 @@ func handleAddInspection(args json.RawMessage) (string, error) {
 		EndU:       endU,
 		FoundAt:    foundAt,
 		Inspector:  params.Inspector,
+		AssigneeID: params.AssigneeID,
 		Issue:      params.Issue,
-		Severity:   params.Severity,
-		Status:     params.Status,
+		Severity:   normalizeSeverityMCP(params.Severity),
+		Status:     normalizeStatusMCP(params.Status),
 		Remark:     params.Remark,
+	}
+	if inspection.AssigneeID == nil && params.Assignee != "" {
+		user, err := services.FindInspectionAssigneeByName(database.DB, params.Assignee)
+		if err != nil || user == nil {
+			return "", fmt.Errorf("责任人不存在或已禁用: %s", params.Assignee)
+		}
+		inspection.AssigneeID = &user.ID
+	}
+	if err := services.ApplyInspectionAssignee(database.DB, &inspection); err != nil {
+		return "", err
 	}
 
 	// 如果未指定 device_id，但提供了机房+机柜，则自动匹配关联设备
@@ -626,6 +649,10 @@ func handleAddInspection(args json.RawMessage) (string, error) {
 		return "", err
 	}
 	database.DB.Preload("Device").First(&inspection, inspection.ID)
+	services.InspectionLifecycleService{
+		DB:            database.DB,
+		WebhookSender: services.NewConfiguredInspectionWebhookSender(database.DB),
+	}.RecordCreated(inspection, 0)
 
 	// 构建返回结果，包含匹配信息
 	result := map[string]interface{}{
@@ -714,6 +741,8 @@ func handleBatchAddInspections(args json.RawMessage) (string, error) {
 			UPosition  string `json:"u_position"`
 			FoundAt    string `json:"found_at"`
 			Inspector  string `json:"inspector"`
+			Assignee   string `json:"assignee"`
+			AssigneeID *uint  `json:"assignee_id"`
 			Issue      string `json:"issue"`
 			Severity   string `json:"severity"`
 			Status     string `json:"status"`
@@ -758,10 +787,23 @@ func handleBatchAddInspections(args json.RawMessage) (string, error) {
 			EndU:       endU,
 			FoundAt:    foundAt,
 			Inspector:  item.Inspector,
+			AssigneeID: item.AssigneeID,
 			Issue:      item.Issue,
 			Severity:   normalizeSeverityMCP(item.Severity),
 			Status:     normalizeStatusMCP(item.Status),
 			Remark:     item.Remark,
+		}
+		if insp.AssigneeID == nil && item.Assignee != "" {
+			user, err := services.FindInspectionAssigneeByName(database.DB, item.Assignee)
+			if err != nil || user == nil {
+				failed++
+				continue
+			}
+			insp.AssigneeID = &user.ID
+		}
+		if err := services.ApplyInspectionAssignee(database.DB, &insp); err != nil {
+			failed++
+			continue
 		}
 
 		// Auto-match device
@@ -777,6 +819,10 @@ func handleBatchAddInspections(args json.RawMessage) (string, error) {
 			continue
 		}
 		database.DB.Preload("Device").First(&insp, insp.ID)
+		services.InspectionLifecycleService{
+			DB:            database.DB,
+			WebhookSender: services.NewConfiguredInspectionWebhookSender(database.DB),
+		}.RecordCreated(insp, 0)
 		createdRecords = append(createdRecords, insp)
 		inserted++
 	}

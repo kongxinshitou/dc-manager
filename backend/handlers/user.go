@@ -17,6 +17,25 @@ func GetUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
+func GetUserOptions(c *gin.Context) {
+	var users []models.User
+	database.DB.Where("status = ?", "active").Order("display_name, username").Find(&users)
+	options := make([]gin.H, 0, len(users))
+	for _, user := range users {
+		label := user.DisplayName
+		if label == "" {
+			label = user.Username
+		}
+		options = append(options, gin.H{
+			"id":           user.ID,
+			"username":     user.Username,
+			"display_name": user.DisplayName,
+			"label":        label,
+		})
+	}
+	c.JSON(http.StatusOK, options)
+}
+
 func CreateUser(c *gin.Context) {
 	var body struct {
 		Username    string `json:"username" binding:"required,min=3,max=50"`

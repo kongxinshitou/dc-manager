@@ -100,14 +100,36 @@ export interface Inspection {
   end_u: number | null
   found_at: string
   inspector: string
+  assignee_id: number | null
+  assignee_name: string
   issue: string
   severity: string
   status: string
   resolved_at: string | null
+  escalation_level: number
+  last_responded_at: string | null
+  last_escalated_at: string | null
   remark: string
   images?: InspectionImage[]
+  events?: InspectionEvent[]
   created_at: string
   updated_at: string
+}
+
+export interface InspectionEvent {
+  id: number
+  inspection_id: number
+  event_type: string
+  from_status: string
+  to_status: string
+  operator_id: number
+  assignee_id: number | null
+  assignee_name: string
+  escalation_level: number
+  remark: string
+  webhook_status: string
+  webhook_error: string
+  created_at: string
 }
 
 export interface InspectionImage {
@@ -154,8 +176,11 @@ export interface InspectionQuery {
   datacenter?: string
   cabinet?: string
   inspector?: string
+  assignee_id?: number
+  assignee?: string
   severity?: string
   status?: string
+  escalated?: 'true' | 'false'
   start_time?: string
   end_time?: string
   keyword?: string
@@ -175,6 +200,13 @@ export interface UserInfo {
   status?: string
   role?: RoleInfo
   created_at?: string
+}
+
+export interface UserOption {
+  id: number
+  username: string
+  display_name: string
+  label: string
 }
 
 export interface RoleInfo {
@@ -202,6 +234,9 @@ export const changePassword = (oldPassword: string, newPassword: string) =>
 
 export const getUsers = () =>
   api.get<UserInfo[]>('/users').then(r => r.data)
+
+export const getUserOptions = () =>
+  api.get<UserOption[]>('/users/options').then(r => r.data)
 
 export const createUser = (data: { username: string; password: string; display_name: string; role_id: number }) =>
   api.post<UserInfo>('/users', data).then(r => r.data)
@@ -458,6 +493,12 @@ export const createInspection = (data: Partial<Inspection>) =>
 
 export const updateInspection = (id: number, data: Partial<Inspection>) =>
   api.put<Inspection>(`/inspections/${id}`, data).then(r => r.data)
+
+export const transitionInspection = (id: number, data: { action: string; assignee_id?: number | null; remark?: string }) =>
+  api.post<Inspection>(`/inspections/${id}/transition`, data).then(r => r.data)
+
+export const getInspectionEvents = (id: number) =>
+  api.get<InspectionEvent[]>(`/inspections/${id}/events`).then(r => r.data)
 
 export const deleteInspection = (id: number) =>
   api.delete(`/inspections/${id}`).then(r => r.data)

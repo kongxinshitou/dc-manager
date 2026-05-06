@@ -11,9 +11,9 @@ import ResponsiveTable from '../components/ResponsiveTable'
 import {
   getInspections, createInspection, updateInspection, deleteInspection,
   getDeviceOptions, getDeviceCabinets, getDeviceByLocation, batchDeleteInspections,
-  importInspectionsPreview, importInspectionsConfirm,
+  importInspectionsPreview, importInspectionsConfirm, getUserOptions,
 } from '../api'
-import type { Inspection, InspectionQuery, Device } from '../api'
+import type { Inspection, InspectionQuery, Device, UserOption } from '../api'
 
 const { Option } = Select
 const { RangePicker } = DatePicker
@@ -21,6 +21,7 @@ const { Text } = Typography
 
 const severityColor: Record<string, string> = { 严重: 'red', 一般: 'orange', 轻微: 'blue' }
 const statusColor: Record<string, string> = { 待处理: 'red', 处理中: 'orange', 已解决: 'green' }
+const escalationColor = (level?: number) => level && level > 0 ? 'volcano' : 'default'
 
 interface InspectionsProps {
   onGoToDevice?: (id: number) => void
@@ -37,6 +38,7 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
   const [editing, setEditing] = useState<Inspection | null>(null)
   const [datacenterOptions, setDatacenterOptions] = useState<string[]>([])
   const [cabinetOptions, setCabinetOptions] = useState<string[]>([])
+  const [userOptions, setUserOptions] = useState<UserOption[]>([])
   const [form] = Form.useForm()
   const [searchForm] = Form.useForm()
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -69,6 +71,7 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
   useEffect(() => {
     fetchData(query)
     getDeviceOptions().then(opts => setDatacenterOptions(opts.datacenters || []))
+    getUserOptions().then(setUserOptions).catch(() => setUserOptions([]))
   }, [])
 
   const handleSearch = (values: any) => {
@@ -245,6 +248,8 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
     { title: '机柜', dataIndex: 'cabinet', width: 80 },
     { title: 'U位', dataIndex: 'u_position', width: 80 },
     { title: '巡检人', dataIndex: 'inspector', width: 80 },
+    { title: '责任人', dataIndex: 'assignee_name', width: 90,
+      render: (v: string) => v || '-' },
     { title: '问题描述', dataIndex: 'issue', ellipsis: true },
     { title: '等级', dataIndex: 'severity', width: 70,
       render: (v: string) => <Tag color={severityColor[v]}>{v}</Tag> },
@@ -291,7 +296,11 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
       render: v => <Tag color={severityColor[v]}>{v}</Tag> },
     { title: '状态', dataIndex: 'status', width: 80, sorter: true,
       render: v => <Tag color={statusColor[v]}>{v}</Tag> },
+    { title: '升级', dataIndex: 'escalation_level', width: 70, sorter: true,
+      render: (v: number) => <Tag color={escalationColor(v)}>{v > 0 ? `L${v}` : '无'}</Tag> },
     { title: '巡检人', dataIndex: 'inspector', width: 80, sorter: true },
+    { title: '责任人', dataIndex: 'assignee_name', width: 90, sorter: true,
+      render: (v: string) => v || '-' },
     { title: '解决时间', dataIndex: 'resolved_at', width: 110, sorter: true,
       render: v => v ? dayjs(v).format('YYYY-MM-DD') : '-' },
     {
@@ -323,6 +332,7 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
             <>
               <Form.Item name="datacenter"><Input placeholder="机房" allowClear style={{ width: isMobile ? '100%' : 120 }} /></Form.Item>
               <Form.Item name="inspector"><Input placeholder="巡检人" allowClear style={{ width: isMobile ? '100%' : 100 }} /></Form.Item>
+              <Form.Item name="assignee"><Input placeholder="责任人" allowClear style={{ width: isMobile ? '100%' : 100 }} /></Form.Item>
               <Form.Item name="severity">
                 <Select placeholder="等级" allowClear style={{ width: isMobile ? '100%' : 90 }}>
                   <Option value="严重">严重</Option>
@@ -335,6 +345,12 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
                   <Option value="待处理">待处理</Option>
                   <Option value="处理中">处理中</Option>
                   <Option value="已解决">已解决</Option>
+                </Select>
+              </Form.Item>
+              <Form.Item name="escalated">
+                <Select placeholder="升级" allowClear style={{ width: isMobile ? '100%' : 90 }}>
+                  <Option value="true">已升级</Option>
+                  <Option value="false">未升级</Option>
                 </Select>
               </Form.Item>
               <Form.Item name="time_range"><RangePicker style={{ width: isMobile ? '100%' : 220 }} /></Form.Item>
@@ -416,6 +432,7 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
                 <Space size={4} wrap>
                   <Tag color={severityColor[record.severity]}>{record.severity}</Tag>
                   <Tag color={statusColor[record.status]}>{record.status}</Tag>
+                  {record.escalation_level > 0 && <Tag color="volcano">L{record.escalation_level}</Tag>}
                 </Space>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   {dayjs(record.found_at).format('MM-DD HH:mm')}
@@ -445,6 +462,9 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
               )}
               <div style={{ fontSize: 13, marginBottom: 4 }}>
                 <Text type="secondary">巡检人：</Text>{record.inspector || '-'}
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 4 }}>
+                <Text type="secondary">责任人：</Text>{record.assignee_name || '-'}
               </div>
               <div style={{ fontSize: 13, marginBottom: 8, wordBreak: 'break-word' }}>
                 <Text type="secondary">问题：</Text>{record.issue}
@@ -557,6 +577,17 @@ export default function Inspections({ onGoToDevice, onViewDetail, permissions }:
             <Col xs={24} sm={12}>
               <Form.Item label="巡检人" name="inspector" rules={[{ required: true }]}>
                 <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item label="责任人" name="assignee_id" rules={[{ required: true, message: '请选择责任人' }]}>
+                <Select showSearch allowClear optionFilterProp="label" placeholder="选择责任人">
+                  {userOptions.map(u => (
+                    <Option key={u.id} value={u.id} label={`${u.label} ${u.username}`}>
+                      {u.label}{u.username && u.username !== u.label ? `（${u.username}）` : ''}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
           </Row>
