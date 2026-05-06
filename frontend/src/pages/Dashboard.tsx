@@ -60,7 +60,6 @@ export default function Dashboard() {
       name: '未解决问题',
       type: 'bar',
       data: (safeData.room_stats || []).map((s: any) => s.count),
-      itemStyle: { color: '#ff4d4f' },
       label: { show: true, position: 'top' },
     }],
   }
@@ -80,8 +79,7 @@ export default function Dashboard() {
       type: 'line',
       data: (safeData.trends || []).map((t: any) => t.count),
       smooth: true,
-      areaStyle: { opacity: 0.3 },
-      itemStyle: { color: '#1677ff' },
+      areaStyle: { opacity: 0.18 },
     }],
   }
 
@@ -116,7 +114,6 @@ export default function Dashboard() {
       name: '设备数量',
       type: 'bar',
       data: (safeData.datacenter_device_stats || []).map((s: any) => s.count),
-      itemStyle: { color: '#1677ff' },
       label: { show: true, position: 'top' },
     }],
   }
@@ -226,17 +223,17 @@ export default function Dashboard() {
       {/* 巡检问题图表 */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} md={12}>
-          <Card title="各机房未解决问题数量" size="small">
-            <ReactECharts option={roomChartOption} style={{ height: 280, width: '100%' }} />
+          <Card title="各机房未解决问题数量" size="small" className="zl-card-accent">
+            <ReactECharts option={roomChartOption} theme="zoomlion" style={{ height: 280, width: '100%' }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card title="问题等级分布" size="small">
-            <ReactECharts option={severityChartOption} style={{ height: 280, width: '100%' }} />
+          <Card title="问题等级分布" size="small" className="zl-card-accent">
+            <ReactECharts option={severityChartOption} theme="zoomlion" style={{ height: 280, width: '100%' }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card title="状态统计" size="small" style={{ height: '100%' }}>
+          <Card title="状态统计" size="small" className="zl-card-accent" style={{ height: '100%' }}>
             <div style={{ padding: '20px 0' }}>
               {(safeData.status_stats || []).map((s: any) => (
                 <div key={s.status} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -252,13 +249,13 @@ export default function Dashboard() {
       {/* 设备统计图表 */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} md={14}>
-          <Card title="机房设备统计" size="small">
-            <ReactECharts option={datacenterDeviceChartOption} style={{ height: 280, width: '100%' }} />
+          <Card title="机房设备统计" size="small" className="zl-card-accent">
+            <ReactECharts option={datacenterDeviceChartOption} theme="zoomlion" style={{ height: 280, width: '100%' }} />
           </Card>
         </Col>
         <Col xs={24} md={10}>
-          <Card title="设备类型统计" size="small">
-            <ReactECharts option={deviceTypeChartOption} style={{ height: 280, width: '100%' }} />
+          <Card title="设备类型统计" size="small" className="zl-card-accent">
+            <ReactECharts option={deviceTypeChartOption} theme="zoomlion" style={{ height: 280, width: '100%' }} />
           </Card>
         </Col>
       </Row>
@@ -266,8 +263,8 @@ export default function Dashboard() {
       {/* 趋势图 */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col span={24}>
-          <Card title="近30天问题趋势" size="small">
-            <ReactECharts option={trendChartOption} style={{ height: 200, width: '100%' }} />
+          <Card title="近30天问题趋势" size="small" className="zl-card-accent">
+            <ReactECharts option={trendChartOption} theme="zoomlion" style={{ height: 200, width: '100%' }} />
           </Card>
         </Col>
       </Row>

@@ -136,15 +136,17 @@ export default function App() {
     <Layout style={{ minHeight: '100vh' }}>
       {!isMobile && (
         <Sider
-          width={200}
+          width={208}
           style={{ background: token.colorBgContainer, borderRight: `1px solid ${token.colorBorderSecondary}` }}
         >
-          <div style={{
-            height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: 15, color: token.colorPrimary,
-            borderBottom: `1px solid ${token.colorBorderSecondary}`
-          }}>
-            数据中心管理
+          <div className="zl-sider-brand">
+            <div className="zl-brand">
+              <span className="zl-brand-mark">Z</span>
+              <span className="zl-brand-text">
+                <span className="zl-brand-cn">中联重科</span>
+                <span className="zl-brand-en">DC Manager</span>
+              </span>
+            </div>
           </div>
           <Menu
             mode="inline"
@@ -164,8 +166,10 @@ export default function App() {
           height: 56, lineHeight: '56px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <span style={{ fontSize: 16, fontWeight: 600, color: token.colorText }}>
-            {isMobile && <span style={{ marginRight: 8, color: token.colorPrimary, fontWeight: 700 }}>DC</span>}
+          <span className="zl-header-title">
+            {isMobile && (
+              <span className="zl-brand-mark" style={{ width: 22, height: 22, fontSize: 11, marginRight: 2 }}>Z</span>
+            )}
             {getPageTitle(page)}
           </span>
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">

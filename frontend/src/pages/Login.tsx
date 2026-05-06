@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Form, Input, Button, Card, Typography, message } from 'antd'
+import { Form, Input, Button, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { login, type UserInfo } from '../api'
 
@@ -26,34 +26,37 @@ export default function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    }}>
-      <Card style={{ width: 400, maxWidth: '90vw' }} bordered={false}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Typography.Title level={3} style={{ marginBottom: 4 }}>
-            数据中心管理系统
-          </Typography.Title>
-          <Typography.Text type="secondary">DC Manager</Typography.Text>
+    <div className="zl-login-bg">
+      <div className="zl-login-card">
+        <div className="zl-brand" style={{ marginBottom: 18 }}>
+          <span className="zl-brand-mark">Z</span>
+          <span className="zl-brand-text">
+            <span className="zl-brand-cn">中联重科</span>
+            <span className="zl-brand-en">ZOOMLION</span>
+          </span>
         </div>
+        <div className="zl-login-accent" />
+        <h1 className="zl-login-title">数据中心管理系统</h1>
+        <div className="zl-login-subtitle">DATA CENTER MANAGEMENT</div>
+
         <Form onFinish={handleSubmit} size="large">
           <Form.Item name="username" rules={[{ required: true, message: '请输入用户名' }]}>
-            <Input prefix={<UserOutlined />} placeholder="用户名" />
+            <Input prefix={<UserOutlined />} placeholder="用户名" autoComplete="username" />
           </Form.Item>
           <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
-            <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+            <Input.Password prefix={<LockOutlined />} placeholder="密码" autoComplete="current-password" />
           </Form.Item>
-          <Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
             <Button type="primary" htmlType="submit" loading={loading} block>
               登录
             </Button>
           </Form.Item>
         </Form>
-      </Card>
+
+        <div className="zl-login-footer">
+          智能制造 · 工程机械 · 绿色科技
+        </div>
+      </div>
     </div>
   )
 }

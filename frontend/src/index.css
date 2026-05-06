@@ -1,16 +1,212 @@
+:root {
+  --zl-green:         #AACE39;
+  --zl-green-hover:   #99BA2F;
+  --zl-green-active:  #86A526;
+  --zl-star-gray:     #383842;
+  --zl-gravel-gray:   #6B6F76;
+  --zl-text:          #1F2329;
+  --zl-text-secondary:#5F6670;
+  --zl-muted:         #8A9199;
+  --zl-bg:            #F5F7F4;
+  --zl-section:       #F7F8FA;
+  --zl-card:          #FFFFFF;
+  --zl-border:        #E5E8EB;
+  --zl-footer:        #262A31;
+  --zl-radius-card:   8px;
+  --zl-radius-button: 6px;
+  --zl-shadow-card-hover: 0 12px 32px rgba(31, 35, 41, 0.10);
+  --zl-motion-fast:   180ms;
+  --zl-motion-base:   220ms;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  background: var(--zl-bg);
+  color: var(--zl-text);
+  font-family: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+/* ===== Zoomlion brand mark ===== */
+.zl-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zl-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--zl-green);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(170, 206, 57, 0.35);
+}
+
+.zl-brand-text {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.zl-brand-cn {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--zl-text);
+  letter-spacing: 0.5px;
+}
+
+.zl-brand-en {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--zl-text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.zl-brand--on-dark .zl-brand-cn { color: #fff; }
+.zl-brand--on-dark .zl-brand-en { color: rgba(255, 255, 255, 0.6); }
+
+/* ===== Industrial dark login background ===== */
+.zl-login-bg {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(135deg, rgba(170, 206, 57, 0.06) 0%, rgba(38, 42, 49, 0) 60%),
+    linear-gradient(180deg, #1F232B 0%, #262A31 60%, #2C313A 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.zl-login-bg::before,
+.zl-login-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.zl-login-bg::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.6) 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.6) 0%, transparent 70%);
+}
+
+.zl-login-bg::after {
+  background:
+    radial-gradient(600px 320px at 18% 22%, rgba(170, 206, 57, 0.18), transparent 70%),
+    radial-gradient(520px 280px at 82% 78%, rgba(170, 206, 57, 0.10), transparent 70%);
+}
+
+.zl-login-card {
+  position: relative;
+  z-index: 1;
+  width: 408px;
+  max-width: 92vw;
+  border-radius: var(--zl-radius-card);
+  background: #fff;
+  padding: 36px 36px 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.zl-login-accent {
+  height: 4px;
+  width: 56px;
+  background: var(--zl-green);
+  border-radius: 2px;
+  margin-bottom: 20px;
+}
+
+.zl-login-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--zl-text);
+  margin: 0 0 6px;
+  letter-spacing: 0.5px;
+}
+
+.zl-login-subtitle {
+  font-size: 12px;
+  color: var(--zl-text-secondary);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+
+.zl-login-footer {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--zl-muted);
+  letter-spacing: 0.5px;
+}
+
+/* ===== Sidebar wordmark slot ===== */
+.zl-sider-brand {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--zl-border);
+  background: var(--zl-card);
+}
+
+/* ===== Header title with green left rule ===== */
+.zl-header-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--zl-text);
+}
+
+.zl-header-title::before {
+  content: "";
+  width: 3px;
+  height: 16px;
+  background: var(--zl-green);
+  border-radius: 2px;
+}
+
+/* ===== Card title accent (used on chart cards) ===== */
+.zl-card-accent .ant-card-head-title {
+  position: relative;
+  padding-left: 10px;
+}
+
+.zl-card-accent .ant-card-head-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 14px;
+  background: var(--zl-green);
+  border-radius: 2px;
 }
 
 /* Mobile responsive styles */
@@ -76,5 +272,10 @@ body {
   .ant-tag {
     margin-right: 4px;
     margin-bottom: 2px;
+  }
+
+  /* Smaller login card padding on mobile */
+  .zl-login-card {
+    padding: 28px 22px 20px;
   }
 }

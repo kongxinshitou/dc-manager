@@ -6,12 +6,15 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import './index.css'
 import App from './App.tsx'
+import { zoomlionTheme } from './theme/zoomlion'
+import { registerZoomlionEChartsTheme } from './theme/echarts'
 
 dayjs.locale('zh-cn')
+registerZoomlionEChartsTheme()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={zhCN} theme={zoomlionTheme}>
       <App />
     </ConfigProvider>
   </StrictMode>,
